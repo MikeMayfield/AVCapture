@@ -47,6 +47,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="FFT.cs" />
     <Compile Include="FrameBuffer.cs" />
     <Compile Include="AVReader.cs" />
     <Compile Include="Program.cs" />
