@@ -21,7 +21,7 @@ namespace AVCapture
         /// </summary>
         static void Main(string[] args) {
             var avReader = new AVReader();
-            string path = Directory.GetCurrentDirectory() + "\\" + "test.mp4";
+            string path = Directory.GetCurrentDirectory() + "\\" + "demo.mp4";
             if (avReader.Open(path)) {
                 var frameBuffer = avReader.NextFrame();
                 while (frameBuffer != null) {
@@ -29,7 +29,7 @@ namespace AVCapture
                         //TODO Do something with the audio buffer
                     } else {
                         //TODO Do something with the video buffer
-                        string imageName = Directory.GetCurrentDirectory() + "\\" + GetTimestamp(DateTime.Now) + ".jpg";
+                        //string imageName = Directory.GetCurrentDirectory() + "\\result\\" + GetTimestamp(DateTime.Now) + ".jpg";
                         //frameBuffer.videoBuffer.Save(imageName, ImageFormat.Jpeg);
                     }
                     frameBuffer = avReader.NextFrame();
