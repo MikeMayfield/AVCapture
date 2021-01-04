@@ -3,6 +3,7 @@ using MediaToolkit;
 using MediaToolkit.Model;
 using MediaToolkit.Options;
 using System;
+using System.Diagnostics;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
@@ -48,9 +49,9 @@ namespace AVCapture
         /// <returns>Frame buffer for next audio or video frame. NULL if end of file</returns>
         public FrameBuffer NextFrame() {
             //TODO Get next audio or video frame and return in FrameBuffer
-            
+
             // Audio
-            StartConverting(inputFilePath, outputFilePath, frameCount*1000 / reader.FrameRate, 1000 / reader.FrameRate);
+            GetAudioBuffer(inputFilePath, outputFilePath, (float)frameCount / (float)reader.FrameRate, 1f / (float)reader.FrameRate);
             byte[] buffer = File.ReadAllBytes(outputFilePath);
             short[] samples = new short[(buffer.Length-78)/2];
             Buffer.BlockCopy(buffer, 78, samples, 0, buffer.Length-78);
@@ -58,14 +59,6 @@ namespace AVCapture
 
             frame.audioBuffer = samples;
             frameCount++;
-
-            // Video
-            //if ((frame.videoBuffer = reader.ReadVideoFrame()) != null)
-            //{
-            //    count++;
-            //    return frame;
-            //}
-            //return null;
 
             using (var videoFrame = reader.ReadVideoFrame())
             {
@@ -84,19 +77,28 @@ namespace AVCapture
             }
         }
 
-        public void StartConverting(string inputPath, string outputPath, int start, int duration)
+        static public void GetAudioBuffer(string input, string output, float start, float end)
         {
-            var inputFile = new MediaFile { Filename = inputPath };
-            var outputFile = new MediaFile { Filename = outputPath };
+            var inputFile = input;
+            var outputFile = output;
+            if (File.Exists(outputFile))
+                File.Delete(outputFile);
 
-            using (var engine = new Engine())
+            var ffmpegProcess = new Process();
+            ffmpegProcess.StartInfo.UseShellExecute = false;
+            ffmpegProcess.StartInfo.RedirectStandardInput = true;
+            ffmpegProcess.StartInfo.RedirectStandardOutput = true;
+            ffmpegProcess.StartInfo.RedirectStandardError = true;
+            ffmpegProcess.StartInfo.CreateNoWindow = true;
+            ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
+            ffmpegProcess.StartInfo.Arguments = " -i " + inputFile + " -ss " + start + " -to " + end + " -vn -acodec pcm_s16le -ac 2 -ar 44100 " + outputFile;
+            ffmpegProcess.Start();
+            ffmpegProcess.WaitForExit();
+            if (!ffmpegProcess.HasExited)
             {
-                var options = new ConversionOptions { Seek = TimeSpan.FromMilliseconds(start), MaxVideoDuration = TimeSpan.FromMilliseconds(duration) };
-                engine.GetMetadata(inputFile);
-                int index = inputFile.Metadata.AudioData.SampleRate.IndexOf("Hz");
-                frame.audioSampleRateHz = Int32.Parse(inputFile.Metadata.AudioData.SampleRate.Remove(index));
-                engine.Convert(inputFile, outputFile, options);
+                ffmpegProcess.Kill();
             }
+            ffmpegProcess.Close();
         }
 
         /// <summary>
