@@ -1,11 +1,6 @@
-﻿using AForge.Video.FFMPEG;
-using MediaToolkit;
-using MediaToolkit.Model;
-using MediaToolkit.Options;
+﻿using GleamTech.VideoUltimate;
 using System;
 using System.Diagnostics;
-using System.Drawing;
-using System.Drawing.Imaging;
 using System.IO;
 
 namespace AVCapture
@@ -21,11 +16,12 @@ namespace AVCapture
     /// </summary>
     public class AVReader
     {
-        private VideoFileReader reader;
-        private string inputFilePath;
-        private string outputFilePath = Directory.GetCurrentDirectory() + "\\" + "demo.wav";
+        private VideoFrameReader videoFrameReader;
         private FrameBuffer frame = new FrameBuffer();
-        private int frameCount = 0;
+
+        private string inputFilePath;
+        private string tmpAudioPath = Directory.GetCurrentDirectory() + "\\" + "temp.wav";
+        private string tmpPcmPath = Directory.GetCurrentDirectory() + "\\" + "temp.pcm";
 
         /// <summary>
         /// Open an video (MP4, etc.) file for reading
@@ -33,11 +29,12 @@ namespace AVCapture
         /// <param name="filePath">Full path to file to open</param>
         /// <returns>TRUE if open was successful and media is ready to be read</returns>
         public bool Open(string filePath) {
-            //TODO Open the file and prepare for reading decompressed/decoded frames            
-            reader = new VideoFileReader();
+
+            //TODO Open the file and prepare for reading decompressed/decoded frames
+            frame.audioSampleRateHz = 48000;
             inputFilePath = filePath;
-            reader.Open(inputFilePath);
-            if (reader != null)
+            videoFrameReader = new VideoFrameReader(inputFilePath);
+            if (videoFrameReader != null)
                 return true;  //TODO Return the proper result
 
             return false;
@@ -49,35 +46,23 @@ namespace AVCapture
         /// <returns>Frame buffer for next audio or video frame. NULL if end of file</returns>
         public FrameBuffer NextFrame() {
             //TODO Get next audio or video frame and return in FrameBuffer
+            frame.sampleTime += 100;
 
-            // Audio
-            GetAudioBuffer(inputFilePath, outputFilePath, (float)frameCount / (float)reader.FrameRate, 1f / (float)reader.FrameRate);
-            byte[] buffer = File.ReadAllBytes(outputFilePath);
-            short[] samples = new short[(buffer.Length-78)/2];
-            Buffer.BlockCopy(buffer, 78, samples, 0, buffer.Length-78);
-            File.Delete(outputFilePath);
-
-            frame.audioBuffer = samples;
-            frameCount++;
-
-            using (var videoFrame = reader.ReadVideoFrame())
+            if (videoFrameReader.Read())
             {
-                if (videoFrame == null)
-                {
-                    frameCount = 0;
-                    return null;
-                }
+                frame.videoBuffer = videoFrameReader.GetFrame();
 
-                frame.videoBuffer = videoFrame;
+                // Audio
+                if (ExtractAudio(inputFilePath, tmpAudioPath, (float)videoFrameReader.CurrentFrameNumber / (float)videoFrameReader.FrameRate, ((float)videoFrameReader.CurrentFrameNumber / (float)videoFrameReader.FrameRate) + 1f / (float)videoFrameReader.FrameRate))
+                    GetAudioPcmBuffer(tmpAudioPath, tmpPcmPath);
 
-                // Save frames to result directory
-                //string imageName = Directory.GetCurrentDirectory() + "\\result\\" + Program.GetTimestamp(DateTime.Now) + ".jpg";
-                //frame.videoBuffer.Save(imageName, ImageFormat.Jpeg);
                 return frame;
             }
+
+            return null;
         }
 
-        static public void GetAudioBuffer(string input, string output, float start, float end)
+        public bool ExtractAudio(string input, string output, float start, float end)
         {
             var inputFile = input;
             var outputFile = output;
@@ -91,7 +76,7 @@ namespace AVCapture
             ffmpegProcess.StartInfo.RedirectStandardError = true;
             ffmpegProcess.StartInfo.CreateNoWindow = true;
             ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
-            ffmpegProcess.StartInfo.Arguments = " -i " + inputFile + " -ss " + start + " -to " + end + " -vn -acodec pcm_s16le -ac 2 -ar 44100 " + outputFile;
+            ffmpegProcess.StartInfo.Arguments = " -i " + inputFile + " -ss " + start + " -to " + end + " -vn -acodec pcm_s16le -ac 1 " + "-ar " + frame.audioSampleRateHz.ToString() + " " + outputFile;
             ffmpegProcess.Start();
             ffmpegProcess.WaitForExit();
             if (!ffmpegProcess.HasExited)
@@ -99,6 +84,41 @@ namespace AVCapture
                 ffmpegProcess.Kill();
             }
             ffmpegProcess.Close();
+
+            return true;
+        }
+
+        public void GetAudioPcmBuffer(string input, string output)
+        {
+            var inputFile = input;
+            var outputFile = output;
+            if (File.Exists(outputFile))
+                File.Delete(outputFile);
+
+            if (File.Exists(inputFile))
+            {
+                var ffmpegProcess = new Process();
+                ffmpegProcess.StartInfo.UseShellExecute = false;
+                ffmpegProcess.StartInfo.RedirectStandardInput = true;
+                ffmpegProcess.StartInfo.RedirectStandardOutput = true;
+                ffmpegProcess.StartInfo.RedirectStandardError = true;
+                ffmpegProcess.StartInfo.CreateNoWindow = true;
+                ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
+                ffmpegProcess.StartInfo.Arguments = " -y -i " + inputFile + " -acodec pcm_s16le -f s16le " + outputFile;
+                ffmpegProcess.Start();
+                ffmpegProcess.WaitForExit();
+                if (!ffmpegProcess.HasExited)
+                {
+                    ffmpegProcess.Kill();
+                }
+                ffmpegProcess.Close();
+
+                byte[] buffer = File.ReadAllBytes(output);
+                short[] samples = new short[buffer.Length / 2];
+                Buffer.BlockCopy(buffer, 0, samples, 0, buffer.Length);
+
+                frame.audioBuffer = samples;
+            }
         }
 
         /// <summary>
@@ -106,7 +126,6 @@ namespace AVCapture
         /// </summary>
         public void Close() {
             //TODO Do any close post-processing
-            reader.Close();
         }
     }
 }

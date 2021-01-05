@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.IO;
 
@@ -11,31 +12,38 @@ namespace AVCapture
     /// </summary>
     class Program
     {
-        public static String GetTimestamp(DateTime value)
-        {
-            return value.ToString("yyyy_MM_dd_HH_mm_ss_ffff");
-        }
-
         /// <summary>
-        /// Open the file specified in args[0] and process each A/V buffer in file
+        /// Open the test input file and process each A/V buffer in file
         /// </summary>
         static void Main(string[] args) {
             var avReader = new AVReader();
-            string path = Directory.GetCurrentDirectory() + "\\" + "demo.mp4";
+            string path = Directory.GetCurrentDirectory() + "\\SampleVideo.mp4";
+
             if (avReader.Open(path)) {
                 var frameBuffer = avReader.NextFrame();
                 while (frameBuffer != null) {
+                    //Process the audio buffer, if provided
                     if (frameBuffer.audioBuffer != null) {
-                        //TODO Do something with the audio buffer
-                    } else {
-                        //TODO Do something with the video buffer
-                        //string imageName = Directory.GetCurrentDirectory() + "\\result\\" + GetTimestamp(DateTime.Now) + ".jpg";
-                        //frameBuffer.videoBuffer.Save(imageName, ImageFormat.Jpeg);
+                        Console.WriteLine("AUDIO: Time: {0}, Hz: {1}, Length: {2}", 
+                            frameBuffer.sampleTime, frameBuffer.audioSampleRateHz, frameBuffer.audioBuffer.Length);
+                    } 
+                    
+                    //Process the video buffer if provided
+                    if (frameBuffer.videoBuffer != null) {
+                        Console.WriteLine("VIDEO: Time: {0}, File: {0}.jpg",
+                            frameBuffer.sampleTime);
+                        string imageName = Directory.GetCurrentDirectory() + "\\result\\" + frameBuffer.sampleTime + ".jpg";
+                        frameBuffer.videoBuffer.Save(imageName, ImageFormat.MemoryBmp);
                     }
+
                     frameBuffer = avReader.NextFrame();
                 }
                 avReader.Close();
+            } else {
+                Console.WriteLine("Unable to open input file");
             }
+
+            Debug.WriteLine("Finished");
         }
     }
 }
