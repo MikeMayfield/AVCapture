@@ -23,17 +23,18 @@ namespace AVCapture
                 var frameBuffer = avReader.NextFrame();
                 while (frameBuffer != null) {
                     //Process the audio buffer, if provided
-                    if (frameBuffer.audioBuffer != null) {
+                    if (frameBuffer.AudioBuffer != null) {
                         Console.WriteLine("AUDIO: Time: {0}, Hz: {1}, Length: {2}", 
-                            frameBuffer.sampleTime, frameBuffer.audioSampleRateHz, frameBuffer.audioBuffer.Length);
+                            frameBuffer.SampleTime, frameBuffer.AudioSampleRateHz, frameBuffer.AudioBuffer.Length);
                     } 
                     
                     //Process the video buffer if provided
-                    if (frameBuffer.videoBuffer != null) {
-                        Console.WriteLine("VIDEO: Time: {0}, File: {0}.jpg",
-                            frameBuffer.sampleTime);
-                        string imageName = Directory.GetCurrentDirectory() + "\\result\\" + frameBuffer.sampleTime + ".jpg";
-                        frameBuffer.videoBuffer.Save(imageName, ImageFormat.MemoryBmp);
+                    if (frameBuffer.VideoBuffer != null) {
+                        Console.WriteLine("VIDEO: Time: {0}",
+                            frameBuffer.SampleTime);
+                        //string imageName = Directory.GetCurrentDirectory() + "\\result\\" + frameBuffer.SampleTime + ".jpg";
+                        //frameBuffer.VideoBuffer.Save(imageName, ImageFormat.MemoryBmp);
+                        frameBuffer.VideoBuffer.Dispose();
                     }
 
                     frameBuffer = avReader.NextFrame();

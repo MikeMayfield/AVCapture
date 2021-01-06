@@ -16,22 +16,22 @@ namespace AVCapture
     /// </summary>
     public class FrameBuffer
     {
-        //Relative time when frame starts (in 100 nanosecond increments)
-        //The base time (0 ns) is when the first frame is captured
-        public UInt64 sampleTime { get; internal set; }
+        //Relative time when frame starts (in 100ns increments)
+        //The base time (0ns) is when the first frame is captured
+        public long SampleTime { get; internal set; }
 
         //Audio sample rate, in samples/second (e.g. 44.1KHz is 44100)
-        //Undefined for video frame.
-        public Int32 audioSampleRateHz { get; internal set; }
+        //Undefined for video-only frame.
+        public Int32 AudioSampleRateHz { get; internal set; }
 
         //Audio buffer (if audio frame, else NULL)
-        //Signed 16-bit mono PCM format. Stereo channels are combined by summation to 
-        //make a single, mono channel. Channels other than front stereo are discarded.
-        public Int16[] audioBuffer { get; internal set; }
+        //Signed 16-bit mono PCM format. Stereo or other multi-channels are combined to 
+        //make a single, mono channel.
+        public Int16[] AudioBuffer { get; internal set; }
 
         //Video buffer (if video frame, else NULL)
         //The video frame is encapsulated in a Bitmap instance. This 
         //allows efficient transfer of data from an internal video frame.
-        public Bitmap videoBuffer { get; internal set; }
+        public Bitmap VideoBuffer { get; internal set; }
     }
 }
