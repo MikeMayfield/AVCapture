@@ -23,10 +23,10 @@ namespace AVCapture
             fileStream.Seek(byteCount, SeekOrigin.Current);
         }
 
-        public void ReadBytes(byte[] buffer) {
+        public bool ReadBytes(byte[] buffer) {
             var bufferLen = buffer.Length;
             var bytesReadCnt = fileStream.Read(buffer, 0, buffer.Length);
-            Debug.Assert(bytesReadCnt == bufferLen);
+            return (bytesReadCnt == bufferLen);
         }
 
         public String ReadString(int length) {

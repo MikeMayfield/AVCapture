@@ -8,11 +8,13 @@ namespace AVCapture
     /// <summary>
     /// Utility for reading an MP4 or similar file.
     /// 
+    /// NOTE: Do not use this class from the UI thread
+    /// 
     /// Typical operation:
-    /// . Open video file
+    /// . Open MP4 AV file
     /// . While NextFrame returns a non-null buffer
     /// . . Process the frame
-    /// . Close video file
+    /// . Close AV file
     /// </summary>
     public class AVReader {
         private VideoFrameReader videoFrameReader;
@@ -21,35 +23,20 @@ namespace AVCapture
         private double frameDurationSec;
         private double timestampSec = 0.0;
         private const double TICKS_PER_SECOND = 10000000.0;
-        private string wavFilePath = Directory.GetCurrentDirectory() + "\\" + "temp.wav";
+        private string wavFilePath;
 
         /// <summary>
-        /// Open an video (MP4, etc.) file for reading
+        /// Open an audio/video (MP4, etc.) file for reading
         /// </summary>
         /// <param name="filePath">Full path to file to open</param>
         /// <returns>TRUE if open was successful and media is ready to be read</returns>
-        public bool Open(string filePath) {
-            PrepareVideoExtraction(filePath);
-            PrepareAudioExtraction(filePath, videoFrameReader.FrameRate);
-            return true;
-        }
-
-        /// <summary>
-        /// Get next audio or video frame from input
-        /// </summary>
-        /// <returns>Frame buffer for next audio or video frame. NULL if end of file</returns>
-        public FrameBuffer NextFrame() {
-            frame.SampleTime = (long)(timestampSec * TICKS_PER_SECOND);
-
-            if (videoFrameReader.Read())
-            {
-                frame.VideoBuffer = videoFrameReader.GetFrame();
-                wavFile.NextSample(frame.AudioBuffer);
-                timestampSec += frameDurationSec;
-                return frame;
+        public void Open(string filePath, int bufferSize = 0) {
+            if (bufferSize != 0) {
+                PrepareVideoExtraction(filePath);
+                PrepareAudioExtraction(filePath, bufferSize, videoFrameReader.FrameRate);
+            } else {
+                PrepareAudioExtraction(filePath, bufferSize, 0);
             }
-
-            return null;
         }
 
         /// <summary>
@@ -58,11 +45,31 @@ namespace AVCapture
         public void Close() {
             if (wavFile != null) {
                 wavFile.Close();
-                DeleteExistingFile(wavFilePath);
+                //DeleteExistingFile(wavFilePath);
             }
             if (videoFrameReader != null) {
                 videoFrameReader.Dispose();
             }
+        }
+
+        /// <summary>
+        /// Get next audio/video frame from input
+        /// </summary>
+        /// <returns>Frame buffer for next audio and video frame. NULL if end of file</returns>
+        public FrameBuffer NextFrame() {
+            frame.SampleTime = (long)(timestampSec * TICKS_PER_SECOND);
+
+            bool haveVideoBuffer = false;
+            bool haveAudioBuffer;
+            if (videoFrameReader != null && videoFrameReader.Read()) {
+                frame.VideoBuffer = videoFrameReader.GetFrame();
+                haveVideoBuffer = (frame.VideoBuffer != null);
+            }
+
+            haveAudioBuffer = wavFile.NextSample(frame.AudioBuffer);
+            timestampSec += frameDurationSec;
+
+            return (haveVideoBuffer || haveAudioBuffer) ? frame : null;
         }
 
         private void PrepareVideoExtraction(string filePath) {
@@ -74,34 +81,40 @@ namespace AVCapture
             }
         }
 
-        private void PrepareAudioExtraction(string filePath, double videoFrameRate) {
-            CreateWavFileFromAVFile(filePath, wavFilePath);
+        private void PrepareAudioExtraction(string filePath, int bufferSize, double videoFrameRate) {
+            CreateWavFileFromAVFile(filePath);
             wavFile = new WavFile(wavFilePath);
 
             frame.AudioSampleRateHz = wavFile.SamplesPerSec;
-            frame.AudioBuffer = new Int16[(int) ((double) wavFile.SamplesPerSec / videoFrameRate)];
+            if (bufferSize == 0) {  //Combined audio/video extraction
+                frame.AudioBuffer = new Int16[(int) ((double) wavFile.SamplesPerSec / videoFrameRate)];
+            } else {  //Audio extraction only
+                frame.AudioBuffer = new Int16[bufferSize];
+                frameDurationSec = (double) bufferSize / (double) frame.AudioSampleRateHz;
+            }
         }
 
-        private bool CreateWavFileFromAVFile(string avFilePath, string wavFilePath) {
-            DeleteExistingFile(wavFilePath);
+        private void CreateWavFileFromAVFile(string avFilePath) {
+            wavFilePath = avFilePath + ".wav";
+            //DeleteExistingFile(wavFilePath);
 
-            var ffmpegProcess = new Process();
-            ffmpegProcess.StartInfo.UseShellExecute = false;
-            ffmpegProcess.StartInfo.RedirectStandardInput = true;
-            ffmpegProcess.StartInfo.RedirectStandardOutput = true;
-            ffmpegProcess.StartInfo.RedirectStandardError = true;
-            ffmpegProcess.StartInfo.CreateNoWindow = true;
-            ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
-            ffmpegProcess.StartInfo.Arguments = String.Format(" -i {0} -vn -acodec pcm_s16le -ac 1 -ar {1} {2}",  //PCM-16, mono
-                avFilePath, frame.AudioSampleRateHz, wavFilePath);
-            ffmpegProcess.Start();
-            ffmpegProcess.WaitForExit();
-            if (!ffmpegProcess.HasExited) {
-                ffmpegProcess.Kill();
+            if (!File.Exists(wavFilePath)) {
+                var ffmpegProcess = new Process();
+                ffmpegProcess.StartInfo.UseShellExecute = false;
+                ffmpegProcess.StartInfo.RedirectStandardInput = true;
+                ffmpegProcess.StartInfo.RedirectStandardOutput = true;
+                ffmpegProcess.StartInfo.RedirectStandardError = true;
+                ffmpegProcess.StartInfo.CreateNoWindow = true;
+                ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
+                ffmpegProcess.StartInfo.Arguments = String.Format(" -i {0} -vn -acodec pcm_s16le -ac 1 -ar {1} {2}",  //PCM-16, mono
+                    avFilePath, frame.AudioSampleRateHz, wavFilePath);
+                ffmpegProcess.Start();
+                ffmpegProcess.WaitForExit();
+                if (!ffmpegProcess.HasExited) {
+                    ffmpegProcess.Kill();
+                }
+                ffmpegProcess.Close();
             }
-            ffmpegProcess.Close();
-
-            return true;
         }
 
         private void DeleteExistingFile(string filePath) {

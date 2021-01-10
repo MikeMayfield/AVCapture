@@ -39,14 +39,18 @@ namespace AVCapture
 
         public int SamplesPerSec { get; private set; }
 
-        public void NextSample(Int16[] buffer) {
+        public bool NextSample(Int16[] buffer) {
             var bufferLen = buffer.Length;
             if (audioBuffer.Length != bufferLen * 2) {
                 audioBuffer = new byte[bufferLen * 2];
             }
-            binaryFileReader.ReadBytes(audioBuffer);
-            for (int i = 0; i < buffer.Length; i++) {
-                buffer[i] = BitConverter.ToInt16(audioBuffer, i * 2);
+            if (binaryFileReader.ReadBytes(audioBuffer)) {
+                for (int i = 0; i < buffer.Length; i++) {
+                    buffer[i] = BitConverter.ToInt16(audioBuffer, i * 2);
+                }
+                return true;
+            } else {
+                return false;
             }
         }
 
