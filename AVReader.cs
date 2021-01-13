@@ -31,7 +31,7 @@ namespace AVCapture
         /// <param name="filePath">Full path to file to open</param>
         /// <returns>TRUE if open was successful and media is ready to be read</returns>
         public void Open(string filePath, int bufferSize = 0) {
-            if (bufferSize != 0) {
+            if (bufferSize == 0) {
                 PrepareVideoExtraction(filePath);
                 PrepareAudioExtraction(filePath, bufferSize, videoFrameReader.FrameRate);
             } else {
@@ -106,7 +106,7 @@ namespace AVCapture
                 ffmpegProcess.StartInfo.RedirectStandardError = true;
                 ffmpegProcess.StartInfo.CreateNoWindow = true;
                 ffmpegProcess.StartInfo.FileName = Directory.GetCurrentDirectory() + "\\FFMpeg\\ffmpeg.exe";
-                ffmpegProcess.StartInfo.Arguments = String.Format(" -i {0} -vn -acodec pcm_s16le -ac 1 -ar {1} {2}",  //PCM-16, mono
+                ffmpegProcess.StartInfo.Arguments = String.Format(" -i {0} -vn -acodec pcm_s16le -ac 1 -ar 44100 {2}",  //PCM-16, mono
                     avFilePath, frame.AudioSampleRateHz, wavFilePath);
                 ffmpegProcess.Start();
                 ffmpegProcess.WaitForExit();
