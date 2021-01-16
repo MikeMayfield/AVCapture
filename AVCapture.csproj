@@ -56,9 +56,11 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="AudioFileFingerprinter.cs" />
     <Compile Include="BinaryFileReader.cs" />
     <Compile Include="FFT.cs" />
     <Compile Include="FFTv1.cs" />
+    <Compile Include="Fingerprint.cs" />
     <Compile Include="Sample.cs" />
     <Compile Include="FrameBuffer.cs" />
     <Compile Include="AVReader.cs" />

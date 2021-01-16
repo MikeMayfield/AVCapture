@@ -5,6 +5,7 @@ using System.Diagnostics;
 
 
 // =====[ Revision History ]==========================================
+// https://www.codeproject.com/Articles/1107480/DSPLib-FFT-DFT-Fourier-Transform-Library-for-NET-6
 // 17Jun16 - 1.0 - First release - Steve Hageman
 // 20Jun16 - 1.01 - Made some variable terms consistent - Steve Hageman
 // 16Jul16 - 1.02 - Calculated sign of DFT phase was not consistent with that of the FFT. ABS() of phase was right.

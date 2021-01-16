@@ -22,7 +22,7 @@ namespace AVCapture
         private WavFile wavFile;
         private double frameDurationSec;
         private double timestampSec = 0.0;
-        private const double TICKS_PER_SECOND = 10000000.0;
+        private const double TICKS_PER_SECOND = 10000000.0;  //10ns per tick
         private string wavFilePath;
 
         /// <summary>
