@@ -335,8 +335,9 @@ namespace DSPLib
                 }
             }
 
-            if (foundIt == false)
+            if (foundIt == false) {
                 throw new ArgumentOutOfRangeException("inputDataLength + zeroPaddingLength was not an even power of 2! FFT cannot continue.");
+            }
 
             // Set global parameters.
             mLengthTotal = inputDataLength + zeroPaddingLength;

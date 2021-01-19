@@ -45,10 +45,12 @@ namespace AVCapture
         public void Close() {
             if (wavFile != null) {
                 wavFile.Close();
+                wavFile = null;
                 //DeleteExistingFile(wavFilePath);
             }
             if (videoFrameReader != null) {
                 videoFrameReader.Dispose();
+                videoFrameReader = null;
             }
         }
 

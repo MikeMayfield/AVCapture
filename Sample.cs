@@ -29,6 +29,9 @@ namespace AVCapture
 
         public double Amplitude;  //Amplitude in ?
 
+        public static void Init() {
+            fft = null;
+        }
 
         /// <summary>
         /// Create a fingerprint for 

@@ -17,16 +17,17 @@ namespace AVCapture
         AVReader avReader = new AVReader();
 
         public void GenerateFingerprintsForFile(string filePath, int episodeId, Dictionary<int, List<Fingerprint>> fingerprintHashes) {
+            Sample.Init();  //TODO Is this needed?
             avReader.Open(filePath, AUDIO_BUFFER_SIZE);
             var frameBuffer = avReader.NextFrame();
             var todo = 0;
+            var maxTodo = int.MaxValue;
 
-            while (frameBuffer != null && todo++ < 200000) {
+            while (frameBuffer != null && todo++ < maxTodo) {
                 //Process the audio buffer, if provided
                 if (frameBuffer.AudioBuffer != null) {
                     //Generate sample for current frame
-                    Sample sample = new Sample(frameBuffer.AudioSampleRateHz, frameBuffer.SampleTime, frameBuffer.AudioBuffer);
-                    samples.Add(sample);
+                    samples.Add(new Sample(frameBuffer.AudioSampleRateHz, frameBuffer.SampleTime, frameBuffer.AudioBuffer));
                 }
 
                 frameBuffer = avReader.NextFrame();
@@ -47,8 +48,9 @@ namespace AVCapture
 
             for (var sampleIdx = 0; sampleIdx < sampleCount; sampleIdx++) {
                 var sample1 = significantSamples[sampleIdx];
+                Console.WriteLine("{0}\t{1}\t{2}", sample1.SampleTime, sample1.Frequency, sample1.Amplitude);
                 var relatedSampleIdx = sampleIdx + 1;
-                for (var relatedSignificantSampleCnt = 0; relatedSignificantSampleCnt < 10 ; ) {
+                for (var relatedSampleCnt = 0; relatedSampleCnt < 10 ; ) {
                     if (relatedSampleIdx >= sampleCount) {
                         break;
                     }
@@ -57,13 +59,12 @@ namespace AVCapture
                     var fingerprintHash = fingerprint.Hash;
                     if (fingerprintHashes.ContainsKey(fingerprintHash)) {
                         fingerprintListForHash = fingerprintHashes[fingerprintHash];
-                        //Debug.WriteLine("Duplicate hash found: {0}", fingerprint);
                     } else {
                         fingerprintListForHash = new List<Fingerprint>(1);
-                        fingerprintHashes.Add(fingerprint.Hash, fingerprintListForHash);
+                        fingerprintHashes.Add(fingerprintHash, fingerprintListForHash);
                     }
                     fingerprintListForHash.Add(fingerprint);
-                    relatedSignificantSampleCnt++;
+                    relatedSampleCnt++;
                 }
             }
         }
@@ -73,10 +74,20 @@ namespace AVCapture
             foreach (var sample in allSamples) {
                 if (sample.Frequency != 0 && sample.Amplitude >= significantAmplitude) {
                     newList.Add(sample);
-                    Console.WriteLine("{0}\t{1}", sample.SampleTime, sample.Frequency);
+                    //Console.WriteLine("{0}\t{1}", sample.SampleTime, sample.Frequency);
                 }
             }
-            return newList;
+
+            List<Sample> ignoringAdjacentSamples = new List<Sample>(newList.Count);
+            long priorSampleTime = 0;
+            foreach (var sample in newList) {
+                if (sample.SampleTime - priorSampleTime > 2000000) {
+                    ignoringAdjacentSamples.Add(sample);
+                    priorSampleTime = sample.SampleTime;
+                }
+            }
+
+            return ignoringAdjacentSamples;
         }
 
         double AverageAmplitude(List<Sample> sampleList) {

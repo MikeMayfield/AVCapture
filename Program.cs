@@ -17,13 +17,10 @@ namespace AVCapture
         /// Open the test input file and process each A/V buffer in file
         /// </summary>
         static void Main(string[] args) {
-            var fingerprintHashes = new Dictionary<int, List<Fingerprint>>(1000000);
-            var fingerprinter = new AudioFileFingerprinter();
-            string path = Directory.GetCurrentDirectory() + "\\SampleVideo.mp4";
-            fingerprinter.GenerateFingerprintsForFile(path, 1, fingerprintHashes);
+            var databaseFingerprintHashes = new DatabaseFingerprints().GenerateFingerprintsForAllShows();
 
-            path = Directory.GetCurrentDirectory() + "\\SampleVideo2.mp4";
-            fingerprinter.GenerateFingerprintsForFile(path, 2, fingerprintHashes);
+            var matchFingerprints = new MatchFingerprints();
+            var matchedEpisodeId = matchFingerprints.IdentifyEpisodeForAudioMatch(databaseFingerprintHashes);
 
             Debug.WriteLine("Finished");
         }
