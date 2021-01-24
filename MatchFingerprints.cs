@@ -18,7 +18,7 @@ namespace AVCapture
             var episodeFingerprintMatches = new Dictionary<int, Dictionary<long, int>>();  //Key by hash: Value is dictionary of counts by delta-time key
 
             //Generate fingerprints for audio capture  //TODO: Use window into episode
-            string path = Directory.GetCurrentDirectory() + "\\SampleVideo2Capture.mp4";
+            string path = Directory.GetCurrentDirectory() + "\\SampleVideo2Capture2.mp4";
             var fingerprinter = new AudioFileFingerprinter();
             var realtimeMatchHashes = new Dictionary<int, List<Fingerprint>>(1000);
             fingerprinter.GenerateFingerprintsForFile(path, -1, realtimeMatchHashes);

@@ -13,15 +13,18 @@ namespace AVCapture
     /// </summary>
     class Sample
     {
+        //private static readonly int MIN_FREQUENCY = 550;  //Min frequency to process = 500Hz
+        //private static readonly int MAX_FREQUENCY = 15000;  //Max frequency to process = 15,000Hz
+        //private static readonly double MIN_AMPLITUDE = 100d;  //Minimum amplitude to significant and not be considered silence
         private static readonly int MIN_FREQUENCY = 550;  //Min frequency to process = 500Hz
-        private static readonly int MAX_FREQUENCY = 15000;  //Max frequency to process = 15,000Hz
-        private static readonly double MIN_AMPLITUDE = 100d;  //Minimum amplitude to significant and not be considered silence
+        private static readonly int MAX_FREQUENCY = 22000;  //Max frequency to process = 15,000Hz
+        private static readonly double MIN_AMPLITUDE = 0;  //Minimum amplitude to significant and not be considered silence
 
         private static FFT fft = null;
         private static int sampleRateHz;
         private static double[] fftBuffer = null;
         private static double[] bucketFrequencies;
-        private static int minFrequencyBucketIdx = 24;  //Number of buckets to skip to get past 500Hz if 44100 Hz sample rate
+        private static int minFrequencyBucketIdx;  //Number of buckets to skip to get past 500Hz if 44100 Hz sample rate
         private static int maxFrequencyBucketIdx;
 
         public int Frequency { get; private set; }  //Frequency in hz
@@ -75,11 +78,14 @@ namespace AVCapture
                     maxAmplitude = amplitudeHistogram[i];
                     maxIdx = i;
                 }
+                //TODO The following is a test
+                //maxAmplitude += amplitudeHistogram[i];
             }
 
             //Console.WriteLine("maxAmplitude: {0}", maxAmplitude);
             Amplitude = maxAmplitude;
-            return (maxAmplitude >= MIN_AMPLITUDE) ? (int) bucketFrequencies[maxIdx] : 0;
+            return (maxAmplitude >= MIN_AMPLITUDE) ? (int) bucketFrequencies[maxIdx] : 0;  //TODO
+            //return 100;
         }
 
         private double[] FrequencySpan() {

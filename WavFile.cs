@@ -19,11 +19,11 @@ namespace AVCapture
 
             //Fmt chunk
             Debug.Assert(binaryFileReader.ReadString(4) == "fmt ");  //"fmt "
-            binaryFileReader.SkipBytes(4);  //Skip over chunk size
+            var chunkSize = binaryFileReader.ReadInt32();  //Skip over chunk size
             Debug.Assert(binaryFileReader.ReadInt16() == 1);  //wFormatTag == WAVE_FORMAT_PCM
             binaryFileReader.SkipBytes(2);  //Skip nChannels
             SamplesPerSec = binaryFileReader.ReadInt32();  //nSamplesPerSec
-            binaryFileReader.SkipBytes(8);  //Skip nAvgBytesPerSec(4), nBlockAlign(2), wBitsPerSample(2)
+            binaryFileReader.SkipBytes(chunkSize - 8);  //Skip nAvgBytesPerSec(4), nBlockAlign(2), wBitsPerSample(2), any other data
 
             //Skip over non-Data chunk(s)
             var chkId = binaryFileReader.ReadString(4);
