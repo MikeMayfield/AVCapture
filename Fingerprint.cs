@@ -36,7 +36,7 @@ namespace AVCapture
         }
 
         private int ComputeHash(Sample sample1, Sample sample2, int sampleTimeOffset) {
-            return ((sample1.Frequency << 16) + (sample2.Frequency << 8)) + sampleTimeOffset;
+            return ((sample1.Frequency << 19) + (sample2.Frequency << 10)) + sampleTimeOffset;
             //return ((sample1.Frequency - sample2.Frequency) << 16) + sampleTimeOffset;
         }
     }

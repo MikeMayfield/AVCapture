@@ -22,7 +22,6 @@ namespace AVCapture
             var fingerprinter = new AudioFileFingerprinter();
             var realtimeMatchHashes = new Dictionary<int, List<Fingerprint>>(1000);
             fingerprinter.GenerateFingerprintsForFile(path, -1, realtimeMatchHashes);
-            //realtimeMatchHashes = databaseHashes;  //TODO Use calculated match list
             //At this point, matchHashes contains hashes for all significant matches in realtime constellation
 
             //Count number of matching hashes at the same sample time delta for each possibly matching episode
@@ -39,16 +38,27 @@ namespace AVCapture
             //Find episode with most hash matches
             var matchingEpisodeId = 0;
             var maxHashMatchCnt = 0;
+            var almostMaxHashMatchCnt = 0;
+            var almostMatchingEpisodeId = 0;
             foreach (var episodeFingerprintMatch in episodeFingerprintMatches) {
+                var maxSubmatchCnt = 0;
                 foreach (var deltaTimeCount in episodeFingerprintMatch.Value) {
                     if (deltaTimeCount.Value > maxHashMatchCnt) {
+                        almostMaxHashMatchCnt = maxHashMatchCnt;
+                        almostMatchingEpisodeId = matchingEpisodeId;
                         maxHashMatchCnt = deltaTimeCount.Value;
                         matchingEpisodeId = episodeFingerprintMatch.Key;
+                    } else if (deltaTimeCount.Value > almostMaxHashMatchCnt) {
+                        almostMaxHashMatchCnt = deltaTimeCount.Value;
+                        almostMatchingEpisodeId = episodeFingerprintMatch.Key;
+                    }
+                    if (deltaTimeCount.Value > maxSubmatchCnt) {
+                        maxSubmatchCnt = deltaTimeCount.Value;
                     }
                 }
             }
 
-            return (maxHashMatchCnt > 10) ? matchingEpisodeId : 0;
+            return (maxHashMatchCnt > 10 && (maxHashMatchCnt - almostMaxHashMatchCnt > 10 || matchingEpisodeId == almostMatchingEpisodeId)) ? matchingEpisodeId : 0;
         }
 
         private void ProcessMatchingHash(Fingerprint realtimeFingerprint, List<Fingerprint> matchingDatabaseFingerprints, Dictionary<int, Dictionary<long, int>> episodeFingerprintMatches) {

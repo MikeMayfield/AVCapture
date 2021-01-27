@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing.Imaging;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace AVCapture
 {
@@ -22,7 +23,8 @@ namespace AVCapture
             var matchFingerprints = new MatchFingerprints();
             var matchedEpisodeId = matchFingerprints.IdentifyEpisodeForAudioMatch(databaseFingerprintHashes);
 
-            Debug.WriteLine("Finished");
+            Console.WriteLine("Finished, matching episode ID: {0}", matchedEpisodeId);
+            Thread.Sleep(5000);
         }
 
 
