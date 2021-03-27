@@ -34,18 +34,20 @@
     <WarningLevel>4</WarningLevel>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="GleamTech.Common, Version=4.4.5.0, Culture=neutral, PublicKeyToken=a05198837413a6d8, processorArchitecture=MSIL">
-      <HintPath>packages\GleamTech.Common.4.4.5\lib\net40\GleamTech.Common.dll</HintPath>
+    <Reference Include="GleamTech.Common, Version=4.5.0.0, Culture=neutral, PublicKeyToken=a05198837413a6d8, processorArchitecture=MSIL">
+      <HintPath>packages\GleamTech.Common.4.5.0\lib\net40\GleamTech.Common.dll</HintPath>
     </Reference>
     <Reference Include="GleamTech.VideoUltimate, Version=2.4.0.0, Culture=neutral, PublicKeyToken=a05198837413a6d8, processorArchitecture=MSIL">
-      <HintPath>packages\GleamTech.VideoUltimate.2.5.2\lib\net40\GleamTech.VideoUltimate.dll</HintPath>
-      <Private>True</Private>
+      <HintPath>packages\GleamTech.VideoUltimate.2.5.3\lib\net40\GleamTech.VideoUltimate.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=12.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>packages\Newtonsoft.Json.12.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Drawing" />
-    <Reference Include="System.Drawing.Common, Version=4.0.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Drawing.Common.5.0.0\lib\net461\System.Drawing.Common.dll</HintPath>
+    <Reference Include="System.Drawing.Common, Version=4.0.0.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
+      <HintPath>packages\System.Drawing.Common.5.0.2\lib\net461\System.Drawing.Common.dll</HintPath>
     </Reference>
     <Reference Include="System.Numerics" />
     <Reference Include="System.Xml.Linq" />

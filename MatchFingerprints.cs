@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -19,6 +20,7 @@ namespace AVCapture
 
             //Generate fingerprints for audio capture  //TODO: Use window into episode
             string path = Directory.GetCurrentDirectory() + "\\SampleVideo2Capture2.mp4";
+            //string path = Directory.GetCurrentDirectory() + "\\440HzSine.mp4";
             var fingerprinter = new AudioFileFingerprinter();
             var realtimeMatchHashes = new Dictionary<int, List<Fingerprint>>(1000);
             fingerprinter.GenerateFingerprintsForFile(path, -1, realtimeMatchHashes);
@@ -58,6 +60,8 @@ namespace AVCapture
                 }
             }
 
+            SaveToJson(Directory.GetCurrentDirectory() + "\\MatchFingerprints.json", realtimeMatchHashes);
+
             return (maxHashMatchCnt > 10 && (maxHashMatchCnt - almostMaxHashMatchCnt > 10 || matchingEpisodeId == almostMatchingEpisodeId)) ? matchingEpisodeId : 0;
         }
 
@@ -80,5 +84,13 @@ namespace AVCapture
                 }
             }
         }
+
+        void SaveToJson(string filePath, Dictionary<int, List<Fingerprint>> fingerprints) {
+            using (StreamWriter file = File.CreateText(filePath)) {
+                JsonSerializer serializer = new JsonSerializer();
+                serializer.Serialize(file, fingerprints, typeof(Dictionary<int, List<Fingerprint>>));
+            }
+        }
+
     }
 }
