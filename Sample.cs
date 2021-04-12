@@ -13,23 +13,19 @@ namespace AVCapture
     /// </summary>
     class Sample
     {
-        private static readonly int MIN_FREQUENCY = 40;  //Min frequency to process (Hz)
-        private static readonly int MAX_FREQUENCY = 1100;  //Max frequency to process (Hz)
-        private static readonly int MIN_AMPLITUDE = 0;  //Minimum amplitude to significant and not be considered silence
-        private static readonly int BUCKETS_PER_COMBINED_BUCKET = 1;  //Number of FFT buckets to combine into one smaller bucket
-
+        //private static int[] FREQUENCY_BUCKETS = new int[] { 2000, 3000, 4500, 8000 };  //Frequency bands to combine into individual buckets
+        private static int[] FREQUENCY_BUCKETS = new int[] { 540, 728, 983, 1326, 1789, 2414, 3257, 4394, 5929, 8000 };  //Log(n) frequency bands 
+        //private static int[] FREQUENCY_BUCKETS = new int[] { 400, 500, 600, 700, 800, 950, 1000, 1050, 1200 };  //Frequency bands to combine into individual buckets - 1KHz test
         private static FFT fft = null;
         private static int sampleRateHz;
         private static double[] fftBuffer = null;
-        private static int[] bucketFrequencies;
-        private static int minFrequencyBucketIdx;  //Number of buckets to skip to get past MIN_FREQUENCY if 44100 Hz sample rate
-        private static int maxFrequencyBucketIdx;
-        private static int fftBucketCountAfterCombining;  
+        private static int[] bucketIndices = null;
+        private static double[] windowCoefficients;
+        private static double[] fullFrequencySpan;
 
-        public int Frequency { get; private set; }  //Frequency in hz
+        public static int[] BucketFrequencies;
         public long SampleTime { get; private set; }  //Sample time in 10ns ticks
-
-        public int Amplitude;  //Amplitude in ?
+        public double[] AmplitudeAtFrequencyBand;
 
         public static void Init() {
             fft = null;
@@ -38,78 +34,60 @@ namespace AVCapture
         /// <summary>
         /// Create a fingerprint for an audio sample
         /// </summary>
-        public Sample (int sampleRateHz, long sampleTime, Int16[] pcmSampleAmplitudes) {
+        public Sample(int sampleRateHz, long sampleTime, Int16[] pcmSampleAmplitudes) {
             this.SampleTime = sampleTime;
 
             if (fft == null) {
                 fft = new FFT();
                 fft.Initialize((uint) pcmSampleAmplitudes.Length);
-                fftBucketCountAfterCombining = pcmSampleAmplitudes.Length / 2 / BUCKETS_PER_COMBINED_BUCKET;
+                windowCoefficients = DSP.Window.Coefficients(DSP.Window.Type.Hann, (uint) pcmSampleAmplitudes.Length);
+                fullFrequencySpan = fft.FrequencySpan(sampleRateHz);
                 Sample.sampleRateHz = sampleRateHz;
-                bucketFrequencies = FrequencySpan(BUCKETS_PER_COMBINED_BUCKET);
-                minFrequencyBucketIdx = IdxForFrequency(bucketFrequencies, MIN_FREQUENCY);
-                maxFrequencyBucketIdx = IdxForFrequency(bucketFrequencies, MAX_FREQUENCY) - 1;
+                CombineFrequencyBands(out bucketIndices, out BucketFrequencies);
             }
 
-            var amplitudeHisto = CreateFrequencyHistogramFromSamples(pcmSampleAmplitudes);
-            var combinedAmplitudeHist = CreateCombinedFrequencyHistogram(amplitudeHisto, BUCKETS_PER_COMBINED_BUCKET);
+            var amplitudeHisto = CreateFrequencyHistogramFromPcmSlices(pcmSampleAmplitudes);
+            AmplitudeAtFrequencyBand = CreateCombinedFrequencyHistogram(amplitudeHisto, bucketIndices);
 
-            Frequency = FrequencyForMaxAmplitude(combinedAmplitudeHist);
-
-            //Console.WriteLine("MaxFreq: {0}, Amplitudes: {1} {2} {3}", 
-                //Frequency, amplitudeHisto[minFrequencyBucketIdx], amplitudeHisto[minFrequencyBucketIdx], amplitudeHisto[minFrequencyBucketIdx + 2]);
+            if (false) {  //TODO
+                foreach (var amplitude in AmplitudeAtFrequencyBand) {
+                    Console.Write($"{(int) (amplitude * 100)} ");
+                }
+                Console.WriteLine();
+            }
         }
 
-        private int IdxForFrequency(int[] bucketFrequencies, int minFrequency) {
-            for (int i = 0; i < bucketFrequencies.Length; i++) {
-                if (bucketFrequencies[i] >= minFrequency) {
+        public static int FrequencyIdx(int frequency) {
+            for (var i = 0; i < BucketFrequencies.Length; i++) {
+                if (frequency <= BucketFrequencies[i]) {
                     return i;
                 }
             }
 
-            return bucketFrequencies.Length - 1;
+            return 0;  //Need some default return value, but shouldn't ever be used
         }
 
-        private int FrequencyForMaxAmplitude(double[] amplitudeHistogram) {
-            var maxAmplitude = 0d;
-            var maxIdx = 0;
+        private void CombineFrequencyBands(out int[] bucketIndex, out int[] bucketFrequency) {
+            var frequencyBoundariesCnt = FREQUENCY_BUCKETS.Length;
+            bucketIndex = new int[frequencyBoundariesCnt];
+            bucketFrequency = new int[frequencyBoundariesCnt];
 
-            for (int i = minFrequencyBucketIdx; i <= maxFrequencyBucketIdx; i++) {
-                if (amplitudeHistogram[i] > maxAmplitude) {
-                    maxAmplitude = amplitudeHistogram[i];
-                    maxIdx = i;
+            var nextLowerBound = FREQUENCY_BUCKETS[0];
+            var outIdx = 0;
+
+            for (var i = 0; i < fullFrequencySpan.Length; i++) {
+                if (fullFrequencySpan[i] >= nextLowerBound) {
+                    bucketIndex[outIdx] = i;
+                    bucketFrequency[outIdx] = (int) fullFrequencySpan[i];
+                    outIdx++;
+                    if (outIdx < frequencyBoundariesCnt) {
+                        nextLowerBound = FREQUENCY_BUCKETS[outIdx];
+                    } else {
+                        break;
+                    }
                 }
             }
 
-            //Console.WriteLine("maxAmplitude: {0}", maxAmplitude);
-            Amplitude = (int) maxAmplitude;
-            return (int) bucketFrequencies[maxIdx];
-            //return (maxAmplitude >= MIN_AMPLITUDE) ? (int) bucketFrequencies[maxIdx] : 0;  //TODO
-        }
-
-        /// <summary>
-        /// Calculate frequency for each bucket in an FFT list
-        /// </summary>
-        /// <param name="combinedBucketCnt"> Number of buckets in list </param>
-        /// <returns> List of frequencies for buckets </returns>
-        /// TODO: Return short int array instead of double. Change all uses of frequency to int
-        private int[] FrequencySpan(int combinedBucketCnt) {
-            var fullFrequencySpan = fft.FrequencySpan(sampleRateHz);
-            int[] result = new int[fullFrequencySpan.Length / combinedBucketCnt];
-            double sum = 0d;
-            int resultIdx = 0;
-            int combinedCountRemaining = combinedBucketCnt;
-            for (int i = 0; i < fullFrequencySpan.Length; i++) {
-                sum += fullFrequencySpan[i];
-                combinedCountRemaining--;
-                if (combinedCountRemaining == 0) {
-                    result[resultIdx++] = (int)sum / combinedBucketCnt;  //Average frequency across all combined buckets
-                    combinedCountRemaining = combinedBucketCnt;
-                    sum = 0d;
-                }
-            }
-
-            return result;
         }
 
         private void LoadFftBuffer(Int16[] pcmSampleAmplitudes) {
@@ -118,40 +96,46 @@ namespace AVCapture
             }
 
             for (int i = 0; i < pcmSampleAmplitudes.Length; i++) {
-                fftBuffer[i] = (double) pcmSampleAmplitudes[i];
+                fftBuffer[i] = (double) pcmSampleAmplitudes[i] * windowCoefficients[i];
             }
         }
 
-        private double[] CreateFrequencyHistogramFromSamples(Int16[] pcmSampleAmplitudes) {
+        private double[] CreateFrequencyHistogramFromPcmSlices(Int16[] pcmSampleAmplitudes) {
             LoadFftBuffer(pcmSampleAmplitudes);
             return DSP.ConvertComplex.ToMagnitude(fft.Execute(fftBuffer));
         }
 
-        /// <summary>
-        /// Combine several histogram buckets into one, computing RMS average amplitude in resulting bucket.
-        /// </summary>
-        /// <param name="frequencyHistoFromSamples"> Histogram of 1025 frequency buckets </param>
-        /// <param name="fftBucketsPerCombinedBucketCnt"> Number of buckets to combine into one </param>
-        /// <returns> Smaller, combined histogram </returns>
-        private double[] CreateCombinedFrequencyHistogram(double[] frequencyHistoFromSamples, int fftBucketsPerCombinedBucketCnt) {
-            double[] result = new double[frequencyHistoFromSamples.Length / fftBucketsPerCombinedBucketCnt];
+        private double[] CreateCombinedFrequencyHistogram(double[] frequencyHistoFromSamples, int[] bucketIndices) {
+            double[] result = new double[bucketIndices.Length - 1];
 
+            double sum = 0d;
             double sumSquared = 0d;
+            int bucketIndicesIdx = 1;
             int resultIdx = 0;
-            int combinedCountRemaining = fftBucketsPerCombinedBucketCnt;
-            double dblFftBucketsPerCombinedBucketCnt = (double) fftBucketsPerCombinedBucketCnt;
+            double slotCount = 0;
 
-            for (int i = 0; i < frequencyHistoFromSamples.Length; i++) {
-                sumSquared += (frequencyHistoFromSamples[i] * frequencyHistoFromSamples[i]);
-                combinedCountRemaining--;
-                if (combinedCountRemaining == 0) {
-                    result[resultIdx++] = Math.Sqrt(sumSquared / dblFftBucketsPerCombinedBucketCnt);
-                    combinedCountRemaining = fftBucketsPerCombinedBucketCnt;
+            for (int i = bucketIndices[0]; i < frequencyHistoFromSamples.Length; i++) {
+                //If slot belongs to next bucket, compute current bucket and prepare for next bucket
+                if (i >= bucketIndices[bucketIndicesIdx]) {
+                    //result[resultIdx++] = (slotCount > 0) ? Math.Sqrt(sumSquared / slotCount) : 0;
+                    result[resultIdx++] = sum;
+                    sum = 0d;
                     sumSquared = 0d;
+                    slotCount = 0d;
+                    bucketIndicesIdx++;
+                    if (bucketIndicesIdx >= bucketIndices.Length) {
+                        break;
+                    }
                 }
+
+                //Compute sum of slot value squared for one more slot
+                sum += frequencyHistoFromSamples[i];
+                sumSquared += (frequencyHistoFromSamples[i] * frequencyHistoFromSamples[i]);
+                slotCount++;
             }
 
             return result;
         }
+
     }
 }

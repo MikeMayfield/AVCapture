@@ -16,13 +16,13 @@ namespace AVCapture
         public long SampleTime { get; private set; }  //Time of anchor sample
         public int EpisodeId { get; private set; }  //Episode ID of show/episode in database
 
-        public int Freq1;  //TODO
-        public int Amp1;  //TODO
+        public int Freq1;  //TODO REMOVE after debugging
+        public double Amp1;  //TODO
         public int Freq2;  //TODO
-        public int Amp2;  //TODO
+        public double Amp2;  //TODO
         public int Offset;  //TODO
 
-        public Fingerprint(int episodeId, Sample sample1, Sample sample2) {
+        public Fingerprint(int episodeId, SignificantSample sample1, SignificantSample sample2) {
             EpisodeId = episodeId;
             SampleTime = sample1.SampleTime;
             int sampleTimeDelta = (int) (sample2.SampleTime - sample1.SampleTime);
@@ -36,7 +36,7 @@ namespace AVCapture
         }
 
         [JsonConstructor]
-        public Fingerprint(int Freq1, int Amp1, int Freq2, int Amp2, int Offset, int Hash, long SampleTime, int EpisodeId) {
+        public Fingerprint(int Freq1, double Amp1, int Freq2, double Amp2, int Offset, int Hash, long SampleTime, int EpisodeId) {
             this.Freq1 = Freq1;
             this.Amp1 = Amp1;
             this.Freq2 = Freq2;
@@ -48,9 +48,8 @@ namespace AVCapture
         }
 
 
-        private int ComputeHash(Sample sample1, Sample sample2, int sampleTimeOffset) {
-            return ((sample1.Frequency << 19) + (sample2.Frequency << 10)) + sampleTimeOffset;
-            //return ((sample1.Frequency - sample2.Frequency) << 16) + sampleTimeOffset;
+        private int ComputeHash(SignificantSample sample1, SignificantSample sample2, int sampleTimeOffset) {
+            return (sample1.FrequencyIdx << 30) | (sample2.FrequencyIdx << 28) | (sampleTimeOffset & 0xFFFFFFF);
         }
     }
 }

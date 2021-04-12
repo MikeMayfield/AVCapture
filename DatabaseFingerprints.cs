@@ -10,7 +10,7 @@ namespace AVCapture
 {
     class DatabaseFingerprints
     {
-        bool LOAD_FROM_JSON = true;
+        bool LOAD_FROM_JSON = false;
         string JSON_FILE_PATH = Directory.GetCurrentDirectory() + "\\Fingerprints.json";
         Dictionary<int, List<Fingerprint>> databaseFingerprintHashes;
 
@@ -21,19 +21,28 @@ namespace AVCapture
                 databaseFingerprintHashes = new Dictionary<int, List<Fingerprint>>(20000);
                 AudioFileFingerprinter fingerprinter;
 
-                fingerprinter = new AudioFileFingerprinter();
-                fingerprinter.GenerateFingerprintsForFile(Directory.GetCurrentDirectory() + "\\SampleVideo.mp4", 1, databaseFingerprintHashes);
+                //fingerprinter = new AudioFileFingerprinter();
+                //fingerprinter.GenerateFingerprintsForFile(Directory.GetCurrentDirectory() + "\\SampleVideo.mp4", 1, databaseFingerprintHashes);
 
                 fingerprinter = new AudioFileFingerprinter();
                 fingerprinter.GenerateFingerprintsForFile(Directory.GetCurrentDirectory() + "\\SampleVideo2.mp4", 2, databaseFingerprintHashes);
 
-                ////TODO
-                //var fileList = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\TestFiles", "*.mp4");
-                //var episodeId = 3;
-                //foreach (var filePath in fileList) {
-                //    fingerprinter = new AudioFileFingerprinter();
-                //    fingerprinter.GenerateFingerprintsForFile(filePath, episodeId++, databaseFingerprintHashes);
-                //}
+                //fingerprinter = new AudioFileFingerprinter();
+                //fingerprinter.GenerateFingerprintsForFile(Directory.GetCurrentDirectory() + "\\SampleVideo2Capture1.mp4", 1, databaseFingerprintHashes);
+
+                //fingerprinter = new AudioFileFingerprinter();
+                //fingerprinter.GenerateFingerprintsForFile(Directory.GetCurrentDirectory() + "\\SampleVideo2Capture2.mp4", 1, databaseFingerprintHashes);
+
+                //TODO
+                var maxFileToProcess = -1;  //TODO REMOVE
+                var fileList = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\TestFiles", "*.mp4");
+                var episodeId = 3;
+                foreach (var filePath in fileList) {
+                    if (maxFileToProcess-- <= 0)  //TODO REMOVE
+                        break;
+                    fingerprinter = new AudioFileFingerprinter();
+                    fingerprinter.GenerateFingerprintsForFile(filePath, episodeId++, databaseFingerprintHashes);
+                }
 
                 SaveToJson(JSON_FILE_PATH);
             }
