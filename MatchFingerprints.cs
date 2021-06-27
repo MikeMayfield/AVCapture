@@ -14,21 +14,21 @@ namespace AVCapture
         /// 
         /// </summary>
         /// <param name="databaseHashes">Dictionary: Key=Hash of anchorFreq, targetFreq, offsetTime; Value=List of hash fingerprints</param>
-        /// <returns></returns>
-        public long IdentifyEpisodeForAudioMatch(Dictionary<long, List<Fingerprint>> databaseHashes) {
-            var episodeFingerprintMatches = new Dictionary<long, Dictionary<long, int>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
+        /// <returns>Episode ID matching the list of of fingerprints; 0 if no reliable match</returns>
+        public UInt64 IdentifyEpisodeForAudioMatch(Dictionary<UInt64, FingerprintGroup> databaseHashes) {
+            var episodeFingerprintMatches = new Dictionary<UInt64, Dictionary<UInt64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
 
             //Generate fingerprints for audio capture  //TODO: Use window into episode
             //string path = Directory.GetCurrentDirectory() + "\\SampleVideo2Capture2.mp4";
             string path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
             //string path = Directory.GetCurrentDirectory() + "\\SampleVideo2.mp4";
             var fingerprinter = new AudioFileFingerprinter();
-            var fingerprintsForCaptureFile = new Dictionary<long, List<Fingerprint>>(1000);
+            var fingerprintsForCaptureFile = new Dictionary<UInt64, FingerprintGroup>();
             fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile);
             //SaveToJson(Directory.GetCurrentDirectory() + "\\MatchFingerprints.json", fingerprintsForCaptureFile);
 
-            var matchId_Count = new Dictionary<long, int>();
-            var subFingerprintsForCaptureFile = new Dictionary<long, List<Fingerprint>>(1000);  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
+            var matchId_Count = new Dictionary<UInt64, UInt32>();  //Episode IDs and their related match counts
+            var subFingerprintsForCaptureFile = new Dictionary<UInt64, FingerprintGroup>(1000);  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
             var listFingerprintsForCaptureFile = fingerprintsForCaptureFile.ToList();
             for (var sectionOffset = 0; sectionOffset < fingerprintsForCaptureFile.Count; sectionOffset += 1000 /*25*/) {
                 var sectionEnd = sectionOffset + 1000;
@@ -44,34 +44,41 @@ namespace AVCapture
                 }
             }
 
-            return 0L;
-
-            ////Count number of matching hashes at the same sample time delta for each possibly matching episode.
-            ////  . ForEach group of fingerprints for capture file with the same hash
-            ////  . . For each fingerprint for this file in the group
-            ////  . . . If fingerprint's hash is in another file in the database
-            ////  . . . . Create histogram of deltas between capture sample's sample time and the sample time for samples with matching fingerprints in the database
-            ////foreach (var hashGroup in fingerprintsForCaptureFile) {
-            //foreach (var hashGroup in subFingerprintsForCaptureFile) {
-            //    var fingerprintHash = hashGroup.Key;
-            //    var fingerprintsWithSameHash = hashGroup.Value;
-            //    foreach (var captureFingerprint in fingerprintsWithSameHash) {
-            //        if (databaseHashes.ContainsKey(captureFingerprint.Hash)) {
-            //            ProcessMatchingHash(captureFingerprint, databaseHashes[captureFingerprint.Hash], episodeFingerprintMatches);
-            //        }
-            //    }
-            //}
-
-            //return GetEpisodeIdForMatchingEpisode(episodeFingerprintMatches);
+            return GetEpisodeIdForMostSignificantMatch(matchId_Count);
         }
 
-        private KeyValuePair<long, int> Temp(Dictionary<long, List<Fingerprint>> subFingerprintsForCaptureFile, Dictionary<long, List<Fingerprint>> databaseHashes) {
-            var episodeFingerprintMatches = new Dictionary<long, Dictionary<long, int>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
+        private UInt64 GetEpisodeIdForMostSignificantMatch(Dictionary<UInt64, UInt32> matchId_Count) {
+            const UInt32 MINIMUM_ACCEPTABLE_CONFIDENCE_RATIO = 50;
+            UInt64 maxEpisodeId= 0;
+            UInt32 maxMatchCount = 0;
+            UInt32 almostMatchCount = 0;
+
+            foreach (var entry in matchId_Count) {
+                var entryMatchCount = entry.Value;
+                if (entryMatchCount > maxMatchCount) {
+                    almostMatchCount = maxMatchCount;
+                    maxMatchCount = entryMatchCount;
+                    maxEpisodeId = entry.Key;
+                } else if (entry.Value > almostMatchCount) {
+                    almostMatchCount = entryMatchCount;
+                }
+            }
+
+            if (almostMatchCount == 0 || maxMatchCount / almostMatchCount >= MINIMUM_ACCEPTABLE_CONFIDENCE_RATIO) {
+                return maxEpisodeId;
+            } else {
+                return 0;
+            }
+        }
+
+        private KeyValuePair<UInt64, UInt32> Temp(Dictionary<UInt64, FingerprintGroup> subFingerprintsForCaptureFile, 
+                Dictionary<UInt64, FingerprintGroup> databaseHashes) {
+            var episodeFingerprintMatches = new Dictionary<UInt64, Dictionary<UInt64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
 
             foreach (var hashGroup in subFingerprintsForCaptureFile) {
                 var fingerprintHash = hashGroup.Key;
                 var fingerprintsWithSameHash = hashGroup.Value;
-                foreach (var captureFingerprint in fingerprintsWithSameHash) {
+                foreach (var captureFingerprint in fingerprintsWithSameHash.Fingerprints) {
                     if (databaseHashes.ContainsKey(captureFingerprint.Hash)) {
                         ProcessMatchingHash(captureFingerprint, databaseHashes[captureFingerprint.Hash], episodeFingerprintMatches);
                     }
@@ -90,21 +97,22 @@ namespace AVCapture
         /// <param name="fingerprintsInDatabaseThatMatchCaptureFingerprint"> Fingerprints in the database with the same hash as the capture fingerprint </param>
         /// <param name="episodeFingerprintMatchesToUpdate"> Result collection to update: Dictionary: Key is episode ID. Value is dictionary where each entry's 
         ///     key is the timestamp delta between two samples and value is count of samples with the same timestamp delta</param>
-        private void ProcessMatchingHash(Fingerprint captureFingerprint, List<Fingerprint> fingerprintsInDatabaseThatMatchCaptureFingerprint, Dictionary<long, Dictionary<long, int>> episodeFingerprintMatchesToUpdate) {
-            Dictionary<long, int> sampleTimeDeltaCounts;  //Key=Delta between capture fingerprint time and sample from database with the same hash. Value=Number of database samples with the corresponding delta time
+        private void ProcessMatchingHash(Fingerprint captureFingerprint, FingerprintGroup fingerprintsInDatabaseThatMatchCaptureFingerprint, 
+                Dictionary<UInt64, Dictionary<UInt64, UInt32>> episodeFingerprintMatchesToUpdate) {
+            Dictionary<UInt64, UInt32> sampleTimeDeltaCounts;  //Key=Delta between capture fingerprint time and sample from database with the same hash. Value=Number of database samples with the corresponding delta time
 
             //Compare the capture fingerprint all fingerprints in the database
-            foreach (var matchingDatabaseFingerprint in fingerprintsInDatabaseThatMatchCaptureFingerprint) {
+            foreach (var matchingDatabaseFingerprint in fingerprintsInDatabaseThatMatchCaptureFingerprint.Fingerprints) {
                 //If result already contains a collection of delta times and counts for the database fingerprint's episode ID, use it, else create a new one and add it to the result
                 if (episodeFingerprintMatchesToUpdate.ContainsKey(matchingDatabaseFingerprint.EpisodeId)) {
                     sampleTimeDeltaCounts = episodeFingerprintMatchesToUpdate[matchingDatabaseFingerprint.EpisodeId];
                 } else {
-                    sampleTimeDeltaCounts = new Dictionary<long, int>();
+                    sampleTimeDeltaCounts = new Dictionary<UInt64, UInt32>();
                     episodeFingerprintMatchesToUpdate.Add(matchingDatabaseFingerprint.EpisodeId, sampleTimeDeltaCounts);
                 }
 
                 //Increment one more entry at the same delta time between sample times, initializing a new one if the delta time hasn't been seen before
-                var deltaSampleTime = (matchingDatabaseFingerprint.SampleTimeTicks - captureFingerprint.SampleTimeTicks);
+                var deltaSampleTime = (UInt32)(matchingDatabaseFingerprint.SampleTimeTicks - captureFingerprint.SampleTimeTicks);
                 if (deltaSampleTime >= 0) {
                     if (sampleTimeDeltaCounts.ContainsKey(deltaSampleTime)) {
                         sampleTimeDeltaCounts[deltaSampleTime]++;
@@ -115,87 +123,28 @@ namespace AVCapture
             }
         }
 
-        ///// <summary>
-        ///// 
-        ///// </summary>
-        ///// <param name="episodeFingerprintMatches"> //Dictionary: Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta </param>
-        ///// <returns></returns>
-        //private long GetEpisodeIdForMatchingEpisode(Dictionary<long, Dictionary<long, int>> episodeFingerprintMatches) {
-        //    const long COMBINE_WITHIN_TICKS = 0;  //TODO 10_000_0L;
-        //    var matchingEpisodeId = 0L;
-        //    var maxHashMatchCnt = 0;
-        //    var matchHashOffset = 0L;
-        //    var almostMaxHashMatchCnt = 0;
-        //    var almostMatchingEpisodeId = 0L;
-        //    var almostHashOffset = 0L;
-
-        //    //  . For each episode that had a matching hash with the capture file
-        //    //  . . Find maximum delta time count for possibly matching hashes within the episode
-        //    //  . . If count is > than prior best match
-        //    //  . . . Remember new best episode match (and extra info for debugging)
-        //    foreach (var episodeId_sampleTimeOffsetToMatchCount in episodeFingerprintMatches) {
-        //        var maxSubmatchCnt = 0;
-        //        var priorBinOffset = long.MaxValue;
-        //        var sumOfAdjacentBins = 0;
-        //        var episodeDictionary = episodeId_sampleTimeOffsetToMatchCount.Value.ToList();
-        //        episodeDictionary.Sort((pair1, pair2) => {
-        //            return pair1.Key.CompareTo(pair2.Key);
-        //        });
-        //        //foreach (var countAtSampleTimeOffset in episodeId_sampleTimeOffsetToMatchCount.Value) {
-        //        foreach (var kvp in episodeDictionary) {
-        //            var currentBinOffset = kvp.Key;
-        //            var currentBinValue = kvp.Value;
-        //            if (priorBinOffset + COMBINE_WITHIN_TICKS > currentBinOffset) {
-        //                sumOfAdjacentBins += currentBinValue;
-        //            } else {
-        //                if (sumOfAdjacentBins > maxHashMatchCnt) {
-        //                    almostMaxHashMatchCnt = maxHashMatchCnt;
-        //                    almostMatchingEpisodeId = matchingEpisodeId;
-        //                    almostHashOffset = matchHashOffset;
-        //                    maxHashMatchCnt = sumOfAdjacentBins;
-        //                    matchingEpisodeId = episodeId_sampleTimeOffsetToMatchCount.Key;
-        //                    matchHashOffset = currentBinOffset;
-        //                } else if (sumOfAdjacentBins > almostMaxHashMatchCnt) {
-        //                    almostMaxHashMatchCnt = sumOfAdjacentBins;
-        //                    almostMatchingEpisodeId = episodeId_sampleTimeOffsetToMatchCount.Key;
-        //                    almostHashOffset = currentBinOffset;
-        //                }
-        //                if (sumOfAdjacentBins > maxSubmatchCnt) {
-        //                    maxSubmatchCnt = sumOfAdjacentBins;
-        //                }
-
-        //                sumOfAdjacentBins = currentBinValue;
-        //            }
-        //            priorBinOffset = currentBinOffset;
-        //        }
-        //    }
-
-        //    return (maxHashMatchCnt > 10 && (maxHashMatchCnt - almostMaxHashMatchCnt > 10 || matchingEpisodeId == almostMatchingEpisodeId)) ? matchingEpisodeId : 0;
-        //}
-
         /// <summary>
         /// 
         /// </summary>
         /// <param name="episodeFingerprintMatches"> //Dictionary: Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta </param>
         /// <returns></returns>
-        private KeyValuePair<long, int> GetEpisodeIdForMatchingEpisode(Dictionary<long, Dictionary<long, int>> episodeFingerprintMatches) {
-            const long COMBINE_WITHIN_TICKS = 0;  //TODO 10_000_0L;
-            var matchingEpisodeId = 0L;
-            var maxHashMatchCnt = 0;
-            var matchHashOffset = 0L;
-            var almostMaxHashMatchCnt = 0;
-            var almostMatchingEpisodeId = 0L;
-            var almostHashOffset = 0L;
+        private KeyValuePair<UInt64, UInt32> GetEpisodeIdForMatchingEpisode(Dictionary<UInt64, Dictionary<UInt64, UInt32>> episodeFingerprintMatches) {
+            UInt64 matchingEpisodeId = 0L;
+            UInt32 maxHashMatchCnt = 0;
+            UInt64 matchHashOffset = 0;
+            UInt32 almostMaxHashMatchCnt = 0;
+            UInt64 almostMatchingEpisodeId = 0L;
+            UInt64 almostHashOffset = 0L;
 
             //  . For each episode that had a matching hash with the capture file
             //  . . Find maximum delta time count for possibly matching hashes within the episode
             //  . . If count is > than prior best match
             //  . . . Remember new best episode match (and extra info for debugging)
             foreach (var episodeId_sampleTimeOffsetToMatchCount in episodeFingerprintMatches) {
-                var maxSubmatchCnt = 0;
-                var priorBinOffset = long.MaxValue;
-                var sumOfAdjacentBins = 0;
-                var episodeDictionary = episodeId_sampleTimeOffsetToMatchCount.Value.ToList();
+                UInt32 maxSubmatchCnt = 0;
+                UInt64 priorBinOffset = UInt64.MaxValue;
+                UInt32 sumOfAdjacentBins = 0;  //TODO Don't process adjacent bins
+                var episodeDictionary = episodeId_sampleTimeOffsetToMatchCount.Value.ToList();  //TODO Use episodeId_sampleTimeOffsetToMatchCount directly
                 episodeDictionary.Sort((pair1, pair2) => {
                     return pair1.Key.CompareTo(pair2.Key);
                 });
@@ -203,9 +152,9 @@ namespace AVCapture
                 foreach (var kvp in episodeDictionary) {
                     var currentBinOffset = kvp.Key;
                     var currentBinValue = kvp.Value;
-                    if (priorBinOffset + COMBINE_WITHIN_TICKS > currentBinOffset) {
+                    //if (priorBinOffset + COMBINE_WITHIN_TICKS > currentBinOffset) {
                         sumOfAdjacentBins += currentBinValue;
-                    } else {
+                    //} else {
                         if (sumOfAdjacentBins > maxHashMatchCnt) {
                             almostMaxHashMatchCnt = maxHashMatchCnt;
                             almostMatchingEpisodeId = matchingEpisodeId;
@@ -223,18 +172,18 @@ namespace AVCapture
                         }
 
                         sumOfAdjacentBins = currentBinValue;
-                    }
+                    //}
                     priorBinOffset = currentBinOffset;
                 }
             }
 
-            return new KeyValuePair<long, int>(matchingEpisodeId, maxHashMatchCnt);
+            return new KeyValuePair<UInt64, UInt32>(matchingEpisodeId, maxHashMatchCnt);
         }
 
-        void SaveToJson(string filePath, Dictionary<long, List<Fingerprint>> fingerprints) {
+        void SaveToJson(string filePath, Dictionary<UInt64, FingerprintGroup> fingerprints) {
             using (StreamWriter file = File.CreateText(filePath)) {
                 JsonSerializer serializer = new JsonSerializer();
-                serializer.Serialize(file, fingerprints, typeof(Dictionary<long, List<Fingerprint>>));
+                serializer.Serialize(file, fingerprints, typeof(Dictionary<UInt64, FingerprintGroup>));
             }
         }
 

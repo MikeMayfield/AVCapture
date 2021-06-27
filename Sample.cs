@@ -23,13 +23,13 @@ namespace AVCapture
         private static int indexToFirstFftBinForBands;  //Index into the FFT bin that corresponds to the start of the first band
 
         public static int[] BandFrequencies;  //The frequency where each FFT band starts
-        public long SampleTimeTicks { get; private set; }  //Sample time in 100ns ticks
+        public UInt64 SampleTimeTicks { get; private set; }  //Sample time in 100ns ticks
         public double[] AmplitudeAtFrequencyBands;  //Amplitude (RMS) found across all FFT bins in a FFT band  //TODO convert to int or short
 
         /// <summary>
         /// Create a fingerprint for an audio sample
         /// </summary>
-        public Sample(int sampleRateHz, long sampleTimeTicks, Int16[] pcmSampleAmplitudes) {
+        public Sample(int sampleRateHz, UInt64 sampleTimeTicks, Int16[] pcmSampleAmplitudes) {
             this.SampleTimeTicks = sampleTimeTicks;
 
             if (fft == null) {

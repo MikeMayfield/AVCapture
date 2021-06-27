@@ -12,21 +12,21 @@ namespace AVCapture
     /// and sample time of anchor sample.
     /// </summary>
     class Fingerprint {
-        public long Hash { get; private set; }  //Hash of anchor and target frequencies, combined with time difference between samples
-        public long SampleTimeTicks { get; private set; }  //Time of anchor sample
-        public int EpisodeId { get; private set; }  //Episode ID of show/episode in database
+        public UInt32 Hash { get; private set; }  //Hash of anchor and target frequencies, combined with time difference between samples
+        public UInt64 SampleTimeTicks { get; private set; }  //Time of anchor sample
+        public UInt64 EpisodeId { get; private set; }  //Episode ID of show/episode in database
 
         public int Freq1;  //TODO REMOVE after debugging
         public double Amp1;  //TODO
         public int Freq2;  //TODO
         public double Amp2;  //TODO
-        public long Offset;  //TODO
+        public ulong Offset;  //TODO
 
-        public Fingerprint(int episodeId, SignificantSample significantSample1, SignificantSample significantSample2) {
+        public Fingerprint(UInt64 episodeId, SignificantSample significantSample1, SignificantSample significantSample2) {
             EpisodeId = episodeId;
-            SampleTimeTicks = significantSample1.SampleTimeTicks;
-            var sampleTimeDelta = significantSample2.SampleTimeTicks - significantSample1.SampleTimeTicks;
-            Hash = ComputeHash(significantSample1, significantSample2, sampleTimeDelta);
+            SampleTimeTicks = (UInt64)significantSample1.SampleTimeTicks;
+            var sampleTimeDelta = (uint) (significantSample2.SampleTimeTicks - significantSample1.SampleTimeTicks);
+            Hash = ComputeHash(significantSample1, significantSample2);
 
             Freq1 = significantSample1.Frequency;
             Amp1 = significantSample1.Amplitude;
@@ -36,21 +36,22 @@ namespace AVCapture
         }
 
         [JsonConstructor]
-        public Fingerprint(int Freq1, double Amp1, int Freq2, double Amp2, long Offset, long Hash, long SampleTime, int EpisodeId) {
+        public Fingerprint(int Freq1, double Amp1, int Freq2, double Amp2, UInt64 Offset, UInt32 Hash, UInt64 SampleTimeTicks, UInt64 EpisodeId) {
             this.Freq1 = Freq1;
             this.Amp1 = Amp1;
             this.Freq2 = Freq2;
             this.Amp2 = Amp2;
             this.Offset = Offset;
             this.Hash = Hash;
-            this.SampleTimeTicks = SampleTime;
+            this.SampleTimeTicks = SampleTimeTicks;
             this.EpisodeId = EpisodeId;
         }
 
 
-        private long ComputeHash(SignificantSample sample1, SignificantSample sample2, long sampleTimeOffset) {
+        private UInt32 ComputeHash(SignificantSample sample1, SignificantSample sample2) {
+            UInt32 deltaTimeBetweenSamples = (UInt32)(sample2.SampleTimeTicks - sample1.SampleTimeTicks);
             //return (sample1.FrequencyIdx << 24) | (sample2.FrequencyIdx << 20) | (sampleTimeOffset & 0xFFFFF);
-            return (long) (sampleTimeOffset + (long)sample1.FrequencyIdx * 10_000_000_000L + (long) sample2.FrequencyIdx * 1_000_000_000L);  //TODO
+            return (UInt32) (sample1.FrequencyIdx * 10_000_000_000L + sample2.FrequencyIdx * 1_000_000_000L + deltaTimeBetweenSamples);  //TODO
         }
     }
 }

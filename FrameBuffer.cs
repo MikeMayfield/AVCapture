@@ -18,7 +18,7 @@ namespace AVCapture
     {
         //Relative time when frame starts (in 100ns increments)
         //The base time (0ns) is when the first frame is captured
-        public long SampleTime { get; internal set; }
+        public UInt64 SampleTime { get; internal set; }
 
         //Audio sample rate, in samples/second (e.g. 44.1KHz is 44100)
         //Undefined for video-only frame.

@@ -63,6 +63,7 @@
     <Compile Include="DatabaseFingerprints.cs" />
     <Compile Include="FFT.cs" />
     <Compile Include="Fingerprint.cs" />
+    <Compile Include="FingerprintGroup.cs" />
     <Compile Include="MatchFingerprints.cs" />
     <Compile Include="Sample.cs" />
     <Compile Include="FrameBuffer.cs" />

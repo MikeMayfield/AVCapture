@@ -21,7 +21,7 @@ namespace AVCapture
         AVReader avReader = new AVReader();
         short[] fftBuffer = new short[FFT_BUFFER_SIZE];
         const int fftBufferLength = FFT_BUFFER_SIZE;
-        const long sampleDurationTicks = AVReader.TICKS_PER_SECOND * FFT_BUFFER_SIZE / AUDIO_BUFFER_SIZE;
+        const UInt64 sampleDurationTicks = AVReader.TICKS_PER_SECOND * FFT_BUFFER_SIZE / AUDIO_BUFFER_SIZE;
 
 
         /// <summary>
@@ -30,7 +30,7 @@ namespace AVCapture
         /// <param name="filePath">Full path to the file to process</param>
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
-        public void GenerateFingerprintsForFile(string filePath, int episodeId, Dictionary<long, List<Fingerprint>> fingerprintHashes) {
+        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
             //Console.Clear();
             Console.WriteLine("Samples for File: {0} - {1}", episodeId, filePath);
 
@@ -70,7 +70,7 @@ namespace AVCapture
         /// <param name="episodeId"></param>
         /// <param name="samples"></param>
         /// <param name="fingerprintHashes"></param>
-        void CreateFingerprintsFromSamples(int episodeId, List<Sample> samples, Dictionary<long, List<Fingerprint>> fingerprintHashes) {
+        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
             DiscardUnimportantBandsForAllSamples(samples);
             LogImportantSampleBands(samples);
 
@@ -113,8 +113,8 @@ namespace AVCapture
         }
 
         private double AmplitudeFloor(List<Sample> samples, int desiredSignificantSamplesPerSecond) {
-            var durationTicks = samples[samples.Count - 1].SampleTimeTicks;
-            var desiredBinCnt = (int)((long)desiredSignificantSamplesPerSecond * durationTicks / 10000000L);
+            UInt64 durationTicks = samples[samples.Count - 1].SampleTimeTicks;
+            var desiredBinCnt = (int)((UInt64)desiredSignificantSamplesPerSecond * durationTicks / 10000000L);
             var goalAmplitude = AverageAmplitude(samples);
             var binCntAtGoalAmplitude = Int32.MaxValue;
 
@@ -175,11 +175,11 @@ namespace AVCapture
             }
         }
 
-        private void AddFingerprintsForAllSignificantSamples(int episodeId, List<SignificantSample> significantSamples, Dictionary<long, List<Fingerprint>> fingerprintHashes) {
+        private void AddFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
             //const int RELATED_SAMPLE_CNT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
             const int RELATED_SAMPLE_CNT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point  //TODO
             var significantSampleCount = significantSamples.Count;
-            List<Fingerprint> fingerprintListForHash;
+            FingerprintGroup fingerprintListForHash;
 
             for (var significantSampleIdx = 0; significantSampleIdx < significantSampleCount; significantSampleIdx++) {
                 var rootSample = significantSamples[significantSampleIdx];
@@ -193,17 +193,17 @@ namespace AVCapture
                         break;
                     }
 
-                    var relatedSample = significantSamples[relatedSampleIdx++];
-                    if (relatedSample.SampleTimeTicks >= startingTime && relatedSample.SampleTimeTicks < endingTime) {
-                        var fingerprint = new Fingerprint(episodeId, rootSample, relatedSample);
+                    var relatedFutureSample = significantSamples[relatedSampleIdx++];
+                    if (relatedFutureSample.SampleTimeTicks >= startingTime && relatedFutureSample.SampleTimeTicks < endingTime) {
+                        var fingerprint = new Fingerprint(episodeId, rootSample, relatedFutureSample);
                         var fingerprintHash = fingerprint.Hash;
                         if (fingerprintHashes.ContainsKey(fingerprintHash)) {
                             fingerprintListForHash = fingerprintHashes[fingerprintHash];
                         } else {
-                            fingerprintListForHash = new List<Fingerprint>(1);
+                            fingerprintListForHash = new FingerprintGroup(fingerprintHash);
                             fingerprintHashes.Add(fingerprintHash, fingerprintListForHash);
                         }
-                        fingerprintListForHash.Add(fingerprint);
+                        fingerprintListForHash.AddFingerprint(fingerprint);
                         relatedSampleCnt++;
                     }
                 }
