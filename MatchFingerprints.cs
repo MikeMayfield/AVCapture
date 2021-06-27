@@ -24,7 +24,7 @@ namespace AVCapture
             //string path = Directory.GetCurrentDirectory() + "\\SampleVideo2.mp4";
             var fingerprinter = new AudioFileFingerprinter();
             var fingerprintsForCaptureFile = new Dictionary<UInt64, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile);
+            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, false);
             //SaveToJson(Directory.GetCurrentDirectory() + "\\MatchFingerprints.json", fingerprintsForCaptureFile);
 
             var matchId_Count = new Dictionary<UInt64, UInt32>();  //Episode IDs and their related match counts
@@ -44,11 +44,11 @@ namespace AVCapture
                 }
             }
 
-            return GetEpisodeIdForMostSignificantMatch(matchId_Count);
+            return GetEpisodeIdForMostSignificantMatch(matchId_Count);  //TODO Return confidence ratio as well as ID
         }
 
         private UInt64 GetEpisodeIdForMostSignificantMatch(Dictionary<UInt64, UInt32> matchId_Count) {
-            const UInt32 MINIMUM_ACCEPTABLE_CONFIDENCE_RATIO = 50;
+            const UInt32 MINIMUM_ACCEPTABLE_CONFIDENCE_RATIO = 5;
             UInt64 maxEpisodeId= 0;
             UInt32 maxMatchCount = 0;
             UInt32 almostMatchCount = 0;

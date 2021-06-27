@@ -12,8 +12,7 @@ namespace AVCapture
     /// 
     /// The significant sampling logic has been highly refactored to be similar to the approach taken in https://github.com/methi1999/Findit
     /// </summary>
-    class AudioFileFingerprinter
-    {
+    class AudioFileFingerprinter {
         //int AUDIO_BUFFER_SIZE = 2048;  //Size of buffer for audio-only processing. 0 if audio+video
         const int AUDIO_BUFFER_SIZE = 44100;  //Size of buffer for audio-only processing. 0 if audio+video
         const int FFT_BUFFER_SIZE = 1024;  //Size of FFT buffer (power of 2)
@@ -30,7 +29,7 @@ namespace AVCapture
         /// <param name="filePath">Full path to the file to process</param>
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
-        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
+        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt64, FingerprintGroup> fingerprintHashes, bool discardLowValueFingerprints) {
             //Console.Clear();
             Console.WriteLine("Samples for File: {0} - {1}", episodeId, filePath);
 
@@ -55,7 +54,7 @@ namespace AVCapture
 
             avReader.Close();
 
-            CreateFingerprintsFromSamples(episodeId, samples, fingerprintHashes);
+            CreateFingerprintsFromSamples(episodeId, samples, fingerprintHashes, discardLowValueFingerprints);
         }
 
         void CopyAudioBufferToFftBuffer(short[] audioBuffer, int audioBufferOffset, short[] fftBuffer) {
@@ -69,40 +68,38 @@ namespace AVCapture
         /// </summary>
         /// <param name="episodeId"></param>
         /// <param name="samples"></param>
-        /// <param name="fingerprintHashes"></param>
-        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
+        /// <param name="combinedFingerprintHashes"></param>
+        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt64, FingerprintGroup> combinedFingerprintHashes, bool discardLowValueFingerprints) {
             DiscardUnimportantBandsForAllSamples(samples);
             LogImportantSampleBands(samples);
 
             //Create list of significant samples that are above weighted average amplitude across all samples
             var significantSamples = OnlySignificantSamples(samples);
 
-            //AddFingerprintsForAllSignificantSamples(episodeId, significantSamples, fingerprintHashes);
-            AddFingerprintsForAllSignificantSamples(episodeId, significantSamples, fingerprintHashes);
+            var fileFingerprintHashes = CreateFingerprintsForAllSignificantSamples(episodeId, significantSamples, discardLowValueFingerprints);
+            CombineFingerprintHashes(combinedFingerprintHashes, fileFingerprintHashes);
+        }
+
+        private void CombineFingerprintHashes(Dictionary<ulong, FingerprintGroup> combinedFingerprintHashes, Dictionary<ulong, FingerprintGroup> fileFingerprintHashes) {
+            lock (combinedFingerprintHashes) {
+                foreach (var relatedFingerprintGroup in fileFingerprintHashes) {
+                    var fingerprintHash = relatedFingerprintGroup.Key;
+                    if (combinedFingerprintHashes.ContainsKey(fingerprintHash)) {
+                        combinedFingerprintHashes[fingerprintHash].AppendFingerprints(relatedFingerprintGroup.Value.Fingerprints);
+                    } else {
+                        combinedFingerprintHashes.Add(fingerprintHash, relatedFingerprintGroup.Value);
+                    }
+                }
+            }
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
             var WEIGHT = 2d;
 
-            ////Compute average amplitude (RMS) across all samples and bands
-            //var totalAmplitudeSquared = 0d;
-            //var count = 0;
-            //foreach (var sample in samples) {
-            //    //Compute average amplitude across all bands
-            //    foreach (var amplitudeAtFrequencyBand in sample.AmplitudeAtFrequencyBands) {
-            //        totalAmplitudeSquared += amplitudeAtFrequencyBand * amplitudeAtFrequencyBand;
-            //        count++;
-            //    }
-            //}
-            //var avgAmplitude = Math.Sqrt(totalAmplitudeSquared / count);  //RMS average amplitude across all bands
-
             //Discard bands within each sample that are below weighted average amplitude
-            AverageAmplitude(samples);
-            //var amplitudeFloor = AmplitudeFloor(samples, 10);
-            var amplitudeFloor = AverageAmplitude(samples) * WEIGHT;
+            var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
 
             foreach (var sample in samples) {
-
                 //If band's amplitude is below weighted average, ignore it
                 for (var i = 0; i < sample.AmplitudeAtFrequencyBands.Length; i++) {
                     if (sample.AmplitudeAtFrequencyBands[i] < amplitudeFloor) {
@@ -112,53 +109,29 @@ namespace AVCapture
             }
         }
 
-        private double AmplitudeFloor(List<Sample> samples, int desiredSignificantSamplesPerSecond) {
-            UInt64 durationTicks = samples[samples.Count - 1].SampleTimeTicks;
-            var desiredBinCnt = (int)((UInt64)desiredSignificantSamplesPerSecond * durationTicks / 10000000L);
-            var goalAmplitude = AverageAmplitude(samples);
-            var binCntAtGoalAmplitude = Int32.MaxValue;
-
-            while (binCntAtGoalAmplitude > desiredBinCnt) {
-                binCntAtGoalAmplitude = 0;
-                foreach (var sample in samples) {
-                    for (var idx = 0; idx < sample.AmplitudeAtFrequencyBands.Length; idx++) {
-                        if (sample.AmplitudeAtFrequencyBands[idx] >= goalAmplitude) {
-                            binCntAtGoalAmplitude++;
-                        }
-                    }
-                    if (binCntAtGoalAmplitude > desiredBinCnt) {
-                        break;
-                    }
-                }
-
-                if (binCntAtGoalAmplitude > desiredBinCnt) {
-                    goalAmplitude = goalAmplitude * 1.1d;
-                }
-            }
-
-            return goalAmplitude;
-        }
-
-        private double AverageAmplitude(List<Sample> samples) {
-            //Compute average amplitude (RMS) across all samples and bands
+        private double AverageAmplitudeRMS(List<Sample> samples) {
+            //Compute average amplitude (RMS: Root Mean Squared) across all samples and bands
             var totalAmplitudeSquared = 0d;
             var count = 0;
+
+            //Compute total amplitude squared across all bands
             foreach (var sample in samples) {
-                //Compute average amplitude across all bands
                 foreach (var amplitudeAtFrequencyBand in sample.AmplitudeAtFrequencyBands) {
                     totalAmplitudeSquared += amplitudeAtFrequencyBand * amplitudeAtFrequencyBand;
                     count++;
                 }
             }
-            var avgAmplitude = Math.Sqrt(totalAmplitudeSquared / count);  //RMS average amplitude across all bands
-            return avgAmplitude;
+
+            //Compute SquareRoot of Mean average amplitude to get RMS
+            var meanApplitude = totalAmplitudeSquared / count;
+            return Math.Sqrt(meanApplitude);
         }
 
         private void LogImportantSampleBands(List<Sample> samples) {
-            if (false) {  //TODO
+            var maxLines = 0;  //TODO set to 0 to exclude logging or >0 to limit number of lines logged
+            if (maxLines > 0) {
                 Console.Clear();
                 Console.WriteLine("Samples: (SampleTimeMs, Freq, Amplitude)");
-                var maxLines = 10000;
                 foreach (var sample in samples) {
                     for (var i = 0; i < sample.AmplitudeAtFrequencyBands.Length; i++) {
                         if (sample.AmplitudeAtFrequencyBands[i] > 0d) {
@@ -175,20 +148,21 @@ namespace AVCapture
             }
         }
 
-        private void AddFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples, Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
-            //const int RELATED_SAMPLE_CNT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
-            const int RELATED_SAMPLE_CNT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point  //TODO
+        private Dictionary<UInt64, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples, bool discardLowValueFingerprints) {
+            const int RELATED_SAMPLE_FANOUT = 30;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const UInt64 MAX_FANOUT_TIMESPAN = (UInt64) ((double) AVReader.TICKS_PER_SECOND * 6.8d);
+
+            var fingerprintHashes = new Dictionary<UInt64, FingerprintGroup>();
             var significantSampleCount = significantSamples.Count;
             FingerprintGroup fingerprintListForHash;
 
             for (var significantSampleIdx = 0; significantSampleIdx < significantSampleCount; significantSampleIdx++) {
                 var rootSample = significantSamples[significantSampleIdx];
                 var relatedSampleIdx = significantSampleIdx + 1;
-                var rootSampleFreq = rootSample.Frequency;
-                var startingTime = rootSample.SampleTimeTicks + AVReader.TICKS_PER_SECOND;
-                var endingTime = rootSample.SampleTimeTicks + AVReader.TICKS_PER_SECOND * 10;
+                var startingTime = rootSample.SampleTimeTicks;
+                var endingTime = rootSample.SampleTimeTicks + MAX_FANOUT_TIMESPAN;
 
-                for (var relatedSampleCnt = 0; relatedSampleCnt < RELATED_SAMPLE_CNT;) {
+                for (var relatedSampleCnt = 0; relatedSampleCnt < RELATED_SAMPLE_FANOUT;) {
                     if (relatedSampleIdx >= significantSampleCount) {
                         break;
                     }
@@ -209,37 +183,41 @@ namespace AVCapture
                 }
             }
 
+            return (discardLowValueFingerprints) ? DiscardLowValueHashes(fingerprintHashes) : fingerprintHashes;
         }
 
-        //double[] ComputeSignificantAmplitudeByBand(List<Sample> samples) {
-        //    var WEIGHT = 1.0d;
-        //    var bucketCnt = samples[0].AmplitudeAtFrequencyBands.Length;
-        //    double[] result = new double[bucketCnt];
+        private Dictionary<UInt64, FingerprintGroup> DiscardLowValueHashes(Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
+            var DISCARD_THRESHOLD_PERCENTILE = .90d;
 
-        //    if (bucketCnt > 0) {
-        //        double[] averageAmplitudeByBucket = AverageAmplitudeByBucket(samples);
-        //        double[] standardDeviationByBucket = StandardDeviationByBucket(samples, averageAmplitudeByBucket);
+            //Determine duplicate hash count to start discarding at
+            var countList = new List<int>();
+            foreach (var kvp in fingerprintHashes) {
+                countList.Add(kvp.Value.Fingerprints.Count());
+            }
+            countList.Sort();
+            var midIdx = (int)(countList.Count() * DISCARD_THRESHOLD_PERCENTILE);
+            var discardThreshold = countList[midIdx];
 
-        //        for (int i = 0; i < bucketCnt; i++) {
-        //            result[i] = averageAmplitudeByBucket[i] + standardDeviationByBucket[i] * WEIGHT;
-        //        }
-        //    }
+            //Discard any fingerprint collections with too many fingerprints
+            var hashesToDiscard = new List<UInt64>();
+            foreach (var kvp in fingerprintHashes) {
+                if (kvp.Value.Fingerprints.Count > discardThreshold) {
+                    hashesToDiscard.Add(kvp.Key);
+                }
+            }
+            foreach (var hashToDiscard in hashesToDiscard) {
+                fingerprintHashes.Remove(hashToDiscard);
+            }
 
-        //    return result;
-        //}
+            return fingerprintHashes;
+        }
 
-        //List<SignificantSample> OnlySignificantSamples(List<Sample> allSamples, double[] significantAmplitude) {
-        //    List<SignificantSample> newList = new List<SignificantSample>(allSamples.Count / 100);
-        //    foreach (var sample in allSamples) {
-        //        for (var i = 0; i < significantAmplitude.Length; i++) {
-        //            if (sample.MaxAmplitudeAtFrequencyBands[i] != 0 && sample.MaxAmplitudeAtFrequencyBands[i] >= significantAmplitude[i]) {
-        //                newList.Add(new SignificantSample(sample.SampleTime, Sample.BandFrequencies[i], sample.MaxAmplitudeAtFrequencyBands[i]));
-        //            }
-        //        }
-        //    }
-
-        //    return newList;
-        //}
+        private double StdDeviation(List<int> list) {
+            var count = list.Count();
+            double avg = list.Average();
+            double sum = list.Sum(d => (d - avg) * (d - avg));
+            return Math.Sqrt(sum / count);
+        }
 
         List<SignificantSample> OnlySignificantSamples(List<Sample> allSamples) {
             List<SignificantSample> newList = new List<SignificantSample>(allSamples.Count);
@@ -253,57 +231,5 @@ namespace AVCapture
 
             return newList;
         }
-
-        //double[] AverageAmplitudeByBucket(List<Sample> sampleList) {
-        //    var bucketCnt = sampleList[0].AmplitudeAtFrequencyBands.Length;
-        //    var result = new double[bucketCnt];
-        //    var sumAtBand = new double[bucketCnt];
-
-        //    if (bucketCnt > 0) {
-        //        //Init all counters
-        //        for (var i = 0; i < bucketCnt; i++) {
-        //            sumAtBand[i] = 0d;
-        //        }
-
-        //        //Compute sum of all amplitudes for each bucket
-        //        foreach (var sample in sampleList) {
-        //            for (var i = 0; i < bucketCnt; i++) {
-        //                sumAtBand[i] += sample.AmplitudeAtFrequencyBands[i];
-        //            }
-        //        }
-
-        //        for (var i = 0; i < bucketCnt; i++) {
-        //            result[i] = sumAtBand[i] / sampleList.Count;
-        //        }
-        //    }
-
-        //    return result;
-        //}
-
-        //double[] StandardDeviationByBucket(List<Sample> sampleList, double[] averageAmplitudeByBucket) {
-        //    var bucketCnt = sampleList[0].AmplitudeAtFrequencyBands.Length;
-        //    var result = new double[bucketCnt];
-        //    var sumAtBand = new double[bucketCnt];
-        //    var sumSquaredDeltaAmplitudeAtBand = new double[bucketCnt];
-
-        //    //Init all counters
-        //    for (var i = 0; i < bucketCnt; i++) {
-        //        sumAtBand[i] = 0d;
-        //        sumSquaredDeltaAmplitudeAtBand[i] = 0d;
-        //    }
-
-        //    //Compute standard deviation for each bucket
-        //    foreach (var sample in sampleList) {
-        //        for (var i = 0; i < bucketCnt; i++) {
-        //            var delta = sample.AmplitudeAtFrequencyBands[i] - averageAmplitudeByBucket[i];
-        //            sumSquaredDeltaAmplitudeAtBand[i] += delta * delta;
-        //        }
-        //    }
-        //    for (var i = 0; i < bucketCnt; i++) {
-        //        result[i] = Math.Sqrt(sumSquaredDeltaAmplitudeAtBand[i] / sampleList.Count);
-        //    }
-
-        //    return result;
-        //}
     }
 }

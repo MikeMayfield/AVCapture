@@ -26,16 +26,5 @@ namespace AVCapture
             Console.WriteLine("Finished, matching episode ID: {0}", matchedEpisodeId);
             Thread.Sleep(5000);
         }
-
-
-        //private static Int16[] SimulatedTone(int frequencyHz) {
-        //    var simulatedToneDouble = DSPLib.DSP.Generate.ToneSampling(10, frequencyHz, 44100, 2048);
-        //    var simulatedTone = new Int16[2048];
-        //    for (int i = 0; i < simulatedToneDouble.Length; i++) {
-        //        simulatedTone[i] = (Int16) (simulatedToneDouble[i] * 1000.0);
-        //    }
-
-        //    return simulatedTone;
-        //}
     }
 }

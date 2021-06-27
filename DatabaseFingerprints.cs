@@ -10,13 +10,13 @@ namespace AVCapture
 {
     class DatabaseFingerprints
     {
-        bool LOAD_FROM_JSON = true;
-        string JSON_FILE_PATH = Directory.GetCurrentDirectory() + "\\Fingerprints.json";
+        bool LOAD_FROM_JSON = false;
+        string DATABASE_FINGERPRINTS_JSON_FILE_PATH = Directory.GetCurrentDirectory() + "\\DatabaseFingerprints.json";
         Dictionary<UInt64, FingerprintGroup> databaseFingerprintHashes;
 
         public Dictionary<UInt64, FingerprintGroup> GenerateFingerprintsForAllShows() {
             if (LOAD_FROM_JSON) {
-                databaseFingerprintHashes = LoadFromJson(JSON_FILE_PATH);
+                databaseFingerprintHashes = LoadFromJson(DATABASE_FINGERPRINTS_JSON_FILE_PATH);
             } else { 
                 databaseFingerprintHashes = new Dictionary<UInt64, FingerprintGroup>(20000);
                 AudioFileFingerprinter fingerprinter;
@@ -32,7 +32,7 @@ namespace AVCapture
                 ////GenerateFingerprintsForFile("SampleVideo2Capture2.mp4", 1002);
 
                 //TODO
-                var maxFileToProcess = 0;  //TODO REMOVE
+                var maxFileToProcess = 10;  //TODO REMOVE
                 var fileList = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\TestFiles", "*.mp4");
                 UInt64 episodeId = 101;
                 foreach (var filePath in fileList) {
@@ -44,7 +44,7 @@ namespace AVCapture
 
                 //TODO Remove low value fingerprints
 
-                SaveToJson(JSON_FILE_PATH);
+                SaveToJson(DATABASE_FINGERPRINTS_JSON_FILE_PATH);
             }
 
             return databaseFingerprintHashes;
@@ -53,7 +53,7 @@ namespace AVCapture
         private void GenerateFingerprintsForFile(string filename, UInt64 fileId) {
             var fingerprinter = new AudioFileFingerprinter();
             string filePath = filename.IndexOf('\\') > 0 ? filename : $"{Directory.GetCurrentDirectory()}\\{filename}";
-            fingerprinter.GenerateFingerprintsForFile(filePath, fileId, databaseFingerprintHashes);
+            fingerprinter.GenerateFingerprintsForFile(filePath, fileId, databaseFingerprintHashes, true);
         }
 
         void SaveToJson(string filePath) {

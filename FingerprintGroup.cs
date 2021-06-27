@@ -21,5 +21,9 @@ namespace AVCapture
         public void AddFingerprint(Fingerprint fingerprint) {
             Fingerprints.Add(fingerprint);
         }
+
+        public void AppendFingerprints(List<Fingerprint> fingerprintGroup) {
+            Fingerprints.AddRange(fingerprintGroup);
+        }
     }
 }

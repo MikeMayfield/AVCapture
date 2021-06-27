@@ -25,14 +25,13 @@ namespace AVCapture
         public Fingerprint(UInt64 episodeId, SignificantSample significantSample1, SignificantSample significantSample2) {
             EpisodeId = episodeId;
             SampleTimeTicks = (UInt64)significantSample1.SampleTimeTicks;
-            var sampleTimeDelta = (uint) (significantSample2.SampleTimeTicks - significantSample1.SampleTimeTicks);
             Hash = ComputeHash(significantSample1, significantSample2);
 
             Freq1 = significantSample1.Frequency;
             Amp1 = significantSample1.Amplitude;
             Freq2 = significantSample2.Frequency;
             Amp2 = significantSample2.Amplitude;
-            Offset = sampleTimeDelta;
+            Offset = significantSample2.SampleTimeTicks - significantSample1.SampleTimeTicks;
         }
 
         [JsonConstructor]
