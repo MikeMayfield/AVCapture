@@ -20,9 +20,11 @@ namespace AVCapture
         private VideoFrameReader videoFrameReader;
         private FrameBuffer frame = new FrameBuffer();
         private WavFile wavFile;
-        private double frameDurationSec;
-        private double timestampSec = 0.0;
-        private const double TICKS_PER_SECOND = 10000000.0;  //100ns per tick
+        //private double frameDurationSec;
+        //private double timestampSec = 0.0;
+        private long frameDurationTicks;  //Duration of each frame in 100ns ticks (only accurate when audioBps % sampleSize == 0)
+        private long timestampTicks;  //Sample time in 100ns ticks
+        public const long TICKS_PER_SECOND = 10000000;  //100ns per tick
         private string wavFilePath;
 
         /// <summary>
@@ -59,7 +61,8 @@ namespace AVCapture
         /// </summary>
         /// <returns>Frame buffer for next audio and video frame. NULL if end of file</returns>
         public FrameBuffer NextFrame() {
-            frame.SampleTime = (long)(timestampSec * TICKS_PER_SECOND);
+            //frame.SampleTime = (long)(timestampSec * TICKS_PER_SECOND);
+            frame.SampleTime = timestampTicks;
 
             bool haveVideoBuffer = false;
             bool haveAudioBuffer;
@@ -69,18 +72,20 @@ namespace AVCapture
             }
 
             haveAudioBuffer = wavFile.NextSample(frame.AudioBuffer);
-            timestampSec += frameDurationSec;
+            //timestampSec += frameDurationSec;
+            timestampTicks += frameDurationTicks;
 
             return (haveVideoBuffer || haveAudioBuffer) ? frame : null;
         }
 
         private void PrepareVideoExtraction(string filePath) {
-            videoFrameReader = new VideoFrameReader(filePath);
-            if (videoFrameReader != null) {
-                frameDurationSec = 1.0 / videoFrameReader.FrameRate;
-            } else {
+            //video is not supported in this implementation
+            //videoFrameReader = new VideoFrameReader(filePath);
+            //if (videoFrameReader != null) {
+            //    frameDurationSec = 1.0 / videoFrameReader.FrameRate;
+            //} else {
                 throw new InvalidDataException("Unable to open video file");
-            }
+            //}
         }
 
         private void PrepareAudioExtraction(string filePath, int bufferSize, double videoFrameRate) {
@@ -92,7 +97,8 @@ namespace AVCapture
                 frame.AudioBuffer = new Int16[(int) ((double) wavFile.SamplesPerSec / videoFrameRate)];
             } else {  //Audio extraction only
                 frame.AudioBuffer = new Int16[bufferSize];
-                frameDurationSec = (double) bufferSize / (double) frame.AudioSampleRateHz;
+                //frameDurationSec = (double) bufferSize / (double) frame.AudioSampleRateHz;
+                frameDurationTicks = TICKS_PER_SECOND / (frame.AudioSampleRateHz / bufferSize);
             }
         }
 

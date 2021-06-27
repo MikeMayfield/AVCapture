@@ -8,15 +8,15 @@ namespace AVCapture
 {
     class SignificantSample
     {
-        public long SampleTime { get; private set; }  //Sample time in 10ns ticks
-        public int Frequency { get; private set; }  //Frequency in hz
+        public long SampleTimeTicks { get; private set; }  //Sample time in 10ns ticks
+        public int Frequency { get; private set; }  //Frequency in hz  //TODO Remove this after debugging
         public int FrequencyIdx {  get { return Sample.FrequencyIdx(Frequency); } }
-        public double Amplitude;  //TODO REMOVE
+        public double Amplitude;
 
-        public SignificantSample(long sampleTime, double frequency, double amplitude) {
-            this.SampleTime = sampleTime;
+        public SignificantSample(long sampleTimeTicks, double frequency, double amplitude) {
+            this.SampleTimeTicks = sampleTimeTicks;
             this.Frequency = (int) frequency;
-            this.Amplitude = amplitude;  //TODO REMOVE
+            this.Amplitude = amplitude;
         }
     }
 }
