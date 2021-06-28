@@ -70,6 +70,7 @@
     <Compile Include="AVReader.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="SampleFFT.cs" />
     <Compile Include="SignificantSample.cs" />
     <Compile Include="WavFile.cs" />
   </ItemGroup>

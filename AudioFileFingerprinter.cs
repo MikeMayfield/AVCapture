@@ -21,7 +21,7 @@ namespace AVCapture
         short[] fftBuffer = new short[FFT_BUFFER_SIZE];
         const int fftBufferLength = FFT_BUFFER_SIZE;
         const UInt64 sampleDurationTicks = AVReader.TICKS_PER_SECOND * FFT_BUFFER_SIZE / AUDIO_BUFFER_SIZE;
-
+        private SampleFFT sampleFFT;
 
         /// <summary>
         /// Generate a sample for each audio segment, then use those to samples to generate fingerprints based on significant samples.
@@ -35,6 +35,7 @@ namespace AVCapture
 
             avReader.Open(filePath, AUDIO_BUFFER_SIZE);
             var frameBuffer = avReader.NextFrame();
+            sampleFFT = new SampleFFT(frameBuffer.AudioSampleRateHz, FFT_BUFFER_SIZE);
 
             while (frameBuffer != null) {
                 //Process the audio buffer, if provided
@@ -44,7 +45,7 @@ namespace AVCapture
                     for (var audioBufferOffset = 0; audioBufferOffset + fftBufferLength <= frameBufferLength; audioBufferOffset += fftBufferLength) {
                         //Generate sample for current frame
                         CopyAudioBufferToFftBuffer(frameBuffer.AudioBuffer, audioBufferOffset, fftBuffer);
-                        samples.Add(new Sample(frameBuffer.AudioSampleRateHz, sampleTimeTicks, fftBuffer));
+                        samples.Add(new Sample(sampleTimeTicks, fftBuffer, sampleFFT));
                         sampleTimeTicks += sampleDurationTicks;
                     }
                 }
@@ -135,7 +136,7 @@ namespace AVCapture
                 foreach (var sample in samples) {
                     for (var i = 0; i < sample.AmplitudeAtFrequencyBands.Length; i++) {
                         if (sample.AmplitudeAtFrequencyBands[i] > 0d) {
-                            Console.WriteLine("{0}\t{1}\t{2}", sample.SampleTimeTicks / 10000, Sample.BandFrequencies[i], (int) sample.AmplitudeAtFrequencyBands[i]);
+                            Console.WriteLine("{0}\t{1}\t{2}", sample.SampleTimeTicks / 10000, SampleFFT.BandFrequencies[i], (int) sample.AmplitudeAtFrequencyBands[i]);
                             if (--maxLines <= 0) {
                                 break;
                             }
@@ -149,8 +150,8 @@ namespace AVCapture
         }
 
         private Dictionary<UInt64, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples, bool discardLowValueFingerprints) {
-            const int RELATED_SAMPLE_FANOUT = 30;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
-            const UInt64 MAX_FANOUT_TIMESPAN = (UInt64) ((double) AVReader.TICKS_PER_SECOND * 6.8d);
+            const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const UInt64 MAX_FANOUT_TIMESPAN = (UInt64) ((double) AVReader.TICKS_PER_SECOND * 10d);
 
             var fingerprintHashes = new Dictionary<UInt64, FingerprintGroup>();
             var significantSampleCount = significantSamples.Count;
@@ -187,36 +188,29 @@ namespace AVCapture
         }
 
         private Dictionary<UInt64, FingerprintGroup> DiscardLowValueHashes(Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
-            var DISCARD_THRESHOLD_PERCENTILE = .90d;
+            //var DISCARD_THRESHOLD_PERCENTILE = .90d;
 
-            //Determine duplicate hash count to start discarding at
-            var countList = new List<int>();
-            foreach (var kvp in fingerprintHashes) {
-                countList.Add(kvp.Value.Fingerprints.Count());
-            }
-            countList.Sort();
-            var midIdx = (int)(countList.Count() * DISCARD_THRESHOLD_PERCENTILE);
-            var discardThreshold = countList[midIdx];
+            ////Determine duplicate hash count to start discarding at
+            //var countList = new List<int>();
+            //foreach (var kvp in fingerprintHashes) {
+            //    countList.Add(kvp.Value.Fingerprints.Count());
+            //}
+            //countList.Sort();
+            //var midIdx = (int)(countList.Count() * DISCARD_THRESHOLD_PERCENTILE);
+            //var discardThreshold = countList[midIdx];
 
-            //Discard any fingerprint collections with too many fingerprints
-            var hashesToDiscard = new List<UInt64>();
-            foreach (var kvp in fingerprintHashes) {
-                if (kvp.Value.Fingerprints.Count > discardThreshold) {
-                    hashesToDiscard.Add(kvp.Key);
-                }
-            }
-            foreach (var hashToDiscard in hashesToDiscard) {
-                fingerprintHashes.Remove(hashToDiscard);
-            }
+            ////Discard any fingerprint collections with too many fingerprints
+            //var hashesToDiscard = new List<UInt64>();
+            //foreach (var kvp in fingerprintHashes) {
+            //    if (kvp.Value.Fingerprints.Count > discardThreshold) {
+            //        hashesToDiscard.Add(kvp.Key);
+            //    }
+            //}
+            //foreach (var hashToDiscard in hashesToDiscard) {
+            //    fingerprintHashes.Remove(hashToDiscard);
+            //}
 
             return fingerprintHashes;
-        }
-
-        private double StdDeviation(List<int> list) {
-            var count = list.Count();
-            double avg = list.Average();
-            double sum = list.Sum(d => (d - avg) * (d - avg));
-            return Math.Sqrt(sum / count);
         }
 
         List<SignificantSample> OnlySignificantSamples(List<Sample> allSamples) {
@@ -224,7 +218,7 @@ namespace AVCapture
             foreach (var sample in allSamples) {
                 for (var i = 0; i < sample.AmplitudeAtFrequencyBands.Length; i++) {
                     if (sample.AmplitudeAtFrequencyBands[i] > 0) {
-                        newList.Add(new SignificantSample(sample.SampleTimeTicks, Sample.BandFrequencies[i], sample.AmplitudeAtFrequencyBands[i]));
+                        newList.Add(new SignificantSample(sample.SampleTimeTicks, SampleFFT.BandFrequencies[i], sample.AmplitudeAtFrequencyBands[i]));
                     }
                 }
             }
