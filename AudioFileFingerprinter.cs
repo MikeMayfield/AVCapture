@@ -29,11 +29,16 @@ namespace AVCapture
         /// <param name="filePath">Full path to the file to process</param>
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
-        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt64, FingerprintGroup> fingerprintHashes, bool discardLowValueFingerprints) {
+        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int secondsToCapture = 20000) {
             //Console.Clear();
             Console.WriteLine("Samples for File: {0} - {1}", episodeId, filePath);
 
-            avReader.Open(filePath, AUDIO_BUFFER_SIZE);
+            var upperTimeLimitTicks = AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
+            try {
+                avReader.Open(filePath, AUDIO_BUFFER_SIZE);
+            } catch (Exception ex) {
+                return;
+            }
             var frameBuffer = avReader.NextFrame();
             sampleFFT = new SampleFFT(frameBuffer.AudioSampleRateHz, FFT_BUFFER_SIZE);
 
@@ -51,11 +56,14 @@ namespace AVCapture
                 }
 
                 frameBuffer = avReader.NextFrame();
+                if (frameBuffer != null && frameBuffer.SampleTime > upperTimeLimitTicks) {
+                    frameBuffer = null;
+                }
             }
 
             avReader.Close();
 
-            CreateFingerprintsFromSamples(episodeId, samples, fingerprintHashes, discardLowValueFingerprints);
+            CreateFingerprintsFromSamples(episodeId, samples, fingerprintHashes);
         }
 
         void CopyAudioBufferToFftBuffer(short[] audioBuffer, int audioBufferOffset, short[] fftBuffer) {
@@ -70,18 +78,23 @@ namespace AVCapture
         /// <param name="episodeId"></param>
         /// <param name="samples"></param>
         /// <param name="combinedFingerprintHashes"></param>
-        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt64, FingerprintGroup> combinedFingerprintHashes, bool discardLowValueFingerprints) {
+        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt32, FingerprintGroup> combinedFingerprintHashes) {
             DiscardUnimportantBandsForAllSamples(samples);
             LogImportantSampleBands(samples);
 
             //Create list of significant samples that are above weighted average amplitude across all samples
             var significantSamples = OnlySignificantSamples(samples);
 
-            var fileFingerprintHashes = CreateFingerprintsForAllSignificantSamples(episodeId, significantSamples, discardLowValueFingerprints);
+            var fileFingerprintHashes = CreateFingerprintsForAllSignificantSamples(episodeId, significantSamples);
             CombineFingerprintHashes(combinedFingerprintHashes, fileFingerprintHashes);
         }
 
-        private void CombineFingerprintHashes(Dictionary<ulong, FingerprintGroup> combinedFingerprintHashes, Dictionary<ulong, FingerprintGroup> fileFingerprintHashes) {
+        /// <summary>
+        /// Combine new file's fingerprints into collection that contains all the files in the group. This is either all files in the database or one file being identified
+        /// </summary>
+        /// <param name="combinedFingerprintHashes"> Existing list of fingerprints for prior files in group </param>
+        /// <param name="fileFingerprintHashes"> List of fingerprints for newly processed file </param>
+        private void CombineFingerprintHashes(Dictionary<UInt32, FingerprintGroup> combinedFingerprintHashes, Dictionary<UInt32, FingerprintGroup> fileFingerprintHashes) {
             lock (combinedFingerprintHashes) {
                 foreach (var relatedFingerprintGroup in fileFingerprintHashes) {
                     var fingerprintHash = relatedFingerprintGroup.Key;
@@ -95,7 +108,7 @@ namespace AVCapture
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
-            var WEIGHT = 2d;
+            var WEIGHT = 3d;  //TODO 2d;
 
             //Discard bands within each sample that are below weighted average amplitude
             var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
@@ -149,27 +162,32 @@ namespace AVCapture
             }
         }
 
-        private Dictionary<UInt64, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples, bool discardLowValueFingerprints) {
-            const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
-            const UInt64 MAX_FANOUT_TIMESPAN = (UInt64) ((double) AVReader.TICKS_PER_SECOND * 10d);
+        private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples) {
+            const int RELATED_SAMPLE_FANOUT = 15;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const UInt64 STARTING_TIME_OFFSET_TICKS = 1_000_000_0;  // Ticks from root sample time to start matching
+            const UInt64 FANOUT_DURATION_SECS = 1000;  // Seconds from root sample time + offset for limit to how far to search
+            const UInt64 MAX_FANOUT_TIMESPAN = AVReader.TICKS_PER_SECOND * FANOUT_DURATION_SECS;  //End of time range to search for fanout
 
-            var fingerprintHashes = new Dictionary<UInt64, FingerprintGroup>();
+            var fingerprintHashes = new Dictionary<UInt32, FingerprintGroup>();  //Hashes for all related samples in significant samples: Hash + Fingerprints with same hash
             var significantSampleCount = significantSamples.Count;
             FingerprintGroup fingerprintListForHash;
-
+            
+            //Process each significant sample to find up to N related future samples
             for (var significantSampleIdx = 0; significantSampleIdx < significantSampleCount; significantSampleIdx++) {
                 var rootSample = significantSamples[significantSampleIdx];
                 var relatedSampleIdx = significantSampleIdx + 1;
-                var startingTime = rootSample.SampleTimeTicks;
-                var endingTime = rootSample.SampleTimeTicks + MAX_FANOUT_TIMESPAN;
+                var startingTime = rootSample.SampleTimeTicks + STARTING_TIME_OFFSET_TICKS;
+                var endingTime = startingTime + MAX_FANOUT_TIMESPAN;
 
+                //Find up to N related samples
                 for (var relatedSampleCnt = 0; relatedSampleCnt < RELATED_SAMPLE_FANOUT;) {
                     if (relatedSampleIdx >= significantSampleCount) {
                         break;
                     }
 
                     var relatedFutureSample = significantSamples[relatedSampleIdx++];
-                    if (relatedFutureSample.SampleTimeTicks >= startingTime && relatedFutureSample.SampleTimeTicks < endingTime) {
+                    if (relatedFutureSample.SampleTimeTicks > startingTime 
+                            && relatedFutureSample.SampleTimeTicks < endingTime) {
                         var fingerprint = new Fingerprint(episodeId, rootSample, relatedFutureSample);
                         var fingerprintHash = fingerprint.Hash;
                         if (fingerprintHashes.ContainsKey(fingerprintHash)) {
@@ -184,10 +202,10 @@ namespace AVCapture
                 }
             }
 
-            return (discardLowValueFingerprints) ? DiscardLowValueHashes(fingerprintHashes) : fingerprintHashes;
+            return fingerprintHashes;
         }
 
-        private Dictionary<UInt64, FingerprintGroup> DiscardLowValueHashes(Dictionary<UInt64, FingerprintGroup> fingerprintHashes) {
+        //private Dictionary<UInt32, FingerprintGroup> DiscardLowValueHashes(Dictionary<UInt32, FingerprintGroup> fingerprintHashes) {
             //var DISCARD_THRESHOLD_PERCENTILE = .90d;
 
             ////Determine duplicate hash count to start discarding at
@@ -200,7 +218,7 @@ namespace AVCapture
             //var discardThreshold = countList[midIdx];
 
             ////Discard any fingerprint collections with too many fingerprints
-            //var hashesToDiscard = new List<UInt64>();
+            //var hashesToDiscard = new List<UInt32>();
             //foreach (var kvp in fingerprintHashes) {
             //    if (kvp.Value.Fingerprints.Count > discardThreshold) {
             //        hashesToDiscard.Add(kvp.Key);
@@ -210,8 +228,8 @@ namespace AVCapture
             //    fingerprintHashes.Remove(hashToDiscard);
             //}
 
-            return fingerprintHashes;
-        }
+        //    return fingerprintHashes;
+        //}
 
         List<SignificantSample> OnlySignificantSamples(List<Sample> allSamples) {
             List<SignificantSample> newList = new List<SignificantSample>(allSamples.Count);

@@ -65,6 +65,7 @@
     <Compile Include="Fingerprint.cs" />
     <Compile Include="FingerprintGroup.cs" />
     <Compile Include="MatchFingerprints.cs" />
+    <Compile Include="MatchResult.cs" />
     <Compile Include="Sample.cs" />
     <Compile Include="FrameBuffer.cs" />
     <Compile Include="AVReader.cs" />

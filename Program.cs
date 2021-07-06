@@ -21,9 +21,10 @@ namespace AVCapture
             var databaseFingerprintHashes = new DatabaseFingerprints().GenerateFingerprintsForAllShows();
 
             var matchFingerprints = new MatchFingerprints();
-            var matchedEpisodeId = matchFingerprints.IdentifyEpisodeForAudioMatch(databaseFingerprintHashes);
+            var matchedEpisode = matchFingerprints.IdentifyEpisodeForAudioMatch(databaseFingerprintHashes);
 
-            Console.WriteLine("Finished, matching episode ID: {0}", matchedEpisodeId);
+            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",
+                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
             Thread.Sleep(5000);
         }
     }

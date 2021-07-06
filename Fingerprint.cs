@@ -14,7 +14,7 @@ namespace AVCapture
     class Fingerprint {
         public UInt32 Hash { get; private set; }  //Hash of anchor and target frequencies, combined with time difference between samples
         public UInt64 SampleTimeTicks { get; private set; }  //Time of anchor sample
-        public UInt64 EpisodeId { get; private set; }  //Episode ID of show/episode in database
+        public UInt64 EpisodeId { get; private set; }  //Episode ID of show/episode in database  //TODO Use UInt32, since we really only need ~26 bits
 
         public int Freq1;  //TODO REMOVE after debugging
         public double Amp1;  //TODO
@@ -49,8 +49,8 @@ namespace AVCapture
 
         private UInt32 ComputeHash(SignificantSample sample1, SignificantSample sample2) {
             UInt32 deltaTimeBetweenSamples = (UInt32)(sample2.SampleTimeTicks - sample1.SampleTimeTicks);
-            //return (sample1.FrequencyIdx << 24) | (sample2.FrequencyIdx << 20) | (sampleTimeOffset & 0xFFFFF);
-            return (UInt32) (sample1.FrequencyIdx * 10_000_000_000L + sample2.FrequencyIdx * 1_000_000_000L + deltaTimeBetweenSamples);  //TODO
+            return ((UInt32) sample1.FrequencyIdx << 29) | ((UInt32) sample2.FrequencyIdx << 26) | (deltaTimeBetweenSamples & 0x3FFFFFF);
+            //return (UInt32) (sample1.FrequencyIdx * 10_000_000_000L + sample2.FrequencyIdx * 1_000_000_000L + deltaTimeBetweenSamples);  //TODO
         }
     }
 }

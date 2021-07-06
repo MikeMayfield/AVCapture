@@ -11,10 +11,10 @@ namespace AVCapture
     /// </summary>
     class FingerprintGroup
     {
-        public UInt64 Hash;
-        public List<Fingerprint> Fingerprints = new List<Fingerprint>();
+        public UInt32 Hash;
+        public List<Fingerprint> Fingerprints = new List<Fingerprint>(1000);
 
-        public FingerprintGroup(UInt64 fingerPrintHash) {
+        public FingerprintGroup(UInt32 fingerPrintHash) {
             this.Hash = fingerPrintHash;
         }
 
