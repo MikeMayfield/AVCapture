@@ -13,14 +13,12 @@ namespace AVCapture
     /// The significant sampling logic has been highly refactored to be similar to the approach taken in https://github.com/methi1999/Findit
     /// </summary>
     class AudioFileFingerprinter {
-        //int AUDIO_BUFFER_SIZE = 2048;  //Size of buffer for audio-only processing. 0 if audio+video
-        const int AUDIO_BUFFER_SIZE = 44100;  //Size of buffer for audio-only processing. 0 if audio+video
+        const int AUDIO_BUFFER_SIZE = 44100;  //Size of buffer (words) for audio-only processing. 0 if audio+video
         const int FFT_BUFFER_SIZE = 1024;  //Size of FFT buffer (power of 2)
         List<Sample> samples = new List<Sample>(10000);
         AVReader avReader = new AVReader();
         short[] fftBuffer = new short[FFT_BUFFER_SIZE];
-        const int fftBufferLength = FFT_BUFFER_SIZE;
-        const UInt64 sampleDurationTicks = AVReader.TICKS_PER_SECOND * FFT_BUFFER_SIZE / AUDIO_BUFFER_SIZE;
+        const UInt64 SAMPLE_DURATION_TICKS = AVReader.TICKS_PER_SECOND * FFT_BUFFER_SIZE / AUDIO_BUFFER_SIZE;
         private SampleFFT sampleFFT;
 
         /// <summary>
@@ -30,29 +28,44 @@ namespace AVCapture
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
         public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int secondsToCapture = 20000) {
-            //Console.Clear();
-            Console.WriteLine("Samples for File: {0} - {1}", episodeId, filePath);
-
             var upperTimeLimitTicks = AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
+
+            //Console.Clear();
+            Console.WriteLine("Samples for file: {0} - {1}", episodeId, filePath);
+
             try {
                 avReader.Open(filePath, AUDIO_BUFFER_SIZE);
-            } catch {
+            } catch (Exception ex) {
+                Console.WriteLine("**ERROR: Failed to open file '{0}' with error: {1}",
+                    filePath, ex.Message);
                 return;
             }
+
             var frameBuffer = avReader.NextFrame();
             sampleFFT = new SampleFFT(frameBuffer.AudioSampleRateHz, FFT_BUFFER_SIZE);
+            var sampleTimeTicks = frameBuffer.SampleTime;
+            var fftBufferOffset = 0;
+            var fftBufferBytesToFill = FFT_BUFFER_SIZE;
 
             while (frameBuffer != null) {
                 //Process the audio buffer, if provided
                 if (frameBuffer.AudioBuffer != null) {
                     var frameBufferLength = frameBuffer.AudioBuffer.Length;
-                    var sampleTimeTicks = frameBuffer.SampleTime;
-                    for (var audioBufferOffset = 0; audioBufferOffset + fftBufferLength <= frameBufferLength; audioBufferOffset += fftBufferLength) {
+                    var frameBufferOffset = 0;
+                    for ( ; frameBufferOffset + FFT_BUFFER_SIZE <= frameBufferLength; frameBufferOffset += FFT_BUFFER_SIZE) {
                         //Generate sample for current frame
-                        CopyAudioBufferToFftBuffer(frameBuffer.AudioBuffer, audioBufferOffset, fftBuffer);
+                        CopyAudioBufferToFftBuffer(frameBuffer.AudioBuffer, frameBufferOffset, fftBuffer, fftBufferOffset, fftBufferBytesToFill);
                         samples.Add(new Sample(sampleTimeTicks, fftBuffer, sampleFFT));
-                        sampleTimeTicks += sampleDurationTicks;
+                        fftBufferOffset = 0;
+                        fftBufferBytesToFill = FFT_BUFFER_SIZE;
+                        sampleTimeTicks += SAMPLE_DURATION_TICKS;
                     }
+
+                    //After processing all full FFT buffers from input buffer, preload next FFT buffer with remainder of input buffer
+                    var leftOverWordCnt = frameBufferLength - frameBufferOffset;
+                    CopyAudioBufferToFftBuffer(frameBuffer.AudioBuffer, frameBufferOffset, fftBuffer, fftBufferOffset, leftOverWordCnt);
+                    fftBufferOffset = leftOverWordCnt;
+                    fftBufferBytesToFill = FFT_BUFFER_SIZE - leftOverWordCnt;
                 }
 
                 frameBuffer = avReader.NextFrame();
@@ -66,9 +79,9 @@ namespace AVCapture
             CreateFingerprintsFromSamples(episodeId, samples, fingerprintHashes);
         }
 
-        void CopyAudioBufferToFftBuffer(short[] audioBuffer, int audioBufferOffset, short[] fftBuffer) {
-            for (int i = 0; i < fftBuffer.Length; i++) {
-                fftBuffer[i] = audioBuffer[audioBufferOffset + i];
+        void CopyAudioBufferToFftBuffer(short[] audioBuffer, int audioBufferOffset, short[] fftBuffer, int fftBufferOffset = 0, int transferCnt = 1024) {
+            for (var i = 0; i < transferCnt; i++) {
+                fftBuffer[fftBufferOffset++] = audioBuffer[audioBufferOffset++];
             }
         }
 

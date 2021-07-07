@@ -31,6 +31,7 @@ namespace AVCapture
         /// Open an audio/video (MP4, etc.) file for reading
         /// </summary>
         /// <param name="filePath">Full path to file to open</param>
+        /// <param name="bufferSize">Buffer size, in samples, eg. in words </param>
         /// <returns>TRUE if open was successful and media is ready to be read</returns>
         public void Open(string filePath, int bufferSize = 0) {
             if (bufferSize == 0) {
@@ -93,11 +94,14 @@ namespace AVCapture
             wavFile = new WavFile(wavFilePath);
 
             frame.AudioSampleRateHz = wavFile.SamplesPerSec;
+            if (frame.AudioSampleRateHz != bufferSize) {
+                Console.WriteLine("**ERROR: Sample rate of file ({0}) does not match defined sample rate ({1})", frame.AudioSampleRateHz, bufferSize);
+            }
+
             if (bufferSize == 0) {  //Combined audio/video extraction
                 frame.AudioBuffer = new Int16[(int) ((double) wavFile.SamplesPerSec / videoFrameRate)];
             } else {  //Audio extraction only
                 frame.AudioBuffer = new Int16[bufferSize];
-                //frameDurationSec = (double) bufferSize / (double) frame.AudioSampleRateHz;
                 frameDurationTicks = TICKS_PER_SECOND / (ulong)(frame.AudioSampleRateHz / bufferSize);
             }
         }
