@@ -62,7 +62,7 @@ namespace AVCapture
             path = Directory.GetCurrentDirectory() + "\\NCIS_0614_min2.mp4";
             fingerprinter = new AudioFileFingerprinter();
             fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 45);
+            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
             matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
             Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
                 matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);

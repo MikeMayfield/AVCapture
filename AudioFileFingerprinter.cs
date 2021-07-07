@@ -121,7 +121,7 @@ namespace AVCapture
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
-            var WEIGHT = 4d;
+            var WEIGHT = 3d;
 
             //Discard bands within each sample that are below weighted average amplitude
             var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
@@ -218,7 +218,7 @@ namespace AVCapture
         }
 
         private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt32 episodeId, List<SignificantSample> significantSamples) {
-            const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const int RELATED_SAMPLE_FANOUT = 5;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
             const UInt64 STARTING_TIME_OFFSET_TICKS = 1_000_000_0;  // Ticks from root sample time to start matching
             const UInt64 FANOUT_DURATION_SECS = 1000;  // Seconds from root sample time + offset for limit to how far to search
             const UInt64 MAX_FANOUT_TIMESPAN = AVReader.TICKS_PER_SECOND * FANOUT_DURATION_SECS;  //End of time range to search for fanout
