@@ -35,23 +35,23 @@ namespace AVCapture
         private void ProcessAllTestFiles() {
             var maxFileToProcess = 50;
             var fileList = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\TestFiles", "*.mp4");
-            UInt64 episodeId = 101;
+            UInt32 episodeId = 101;
             using (var countdownEvent = new CountdownEvent(Math.Min(fileList.Length, maxFileToProcess))) {
                 foreach (var filePath in fileList) {
                     if (maxFileToProcess-- <= 0)
                         break;
                     ThreadPool.QueueUserWorkItem(kvp => {
-                            var args = (KeyValuePair<string, ulong>) kvp;
+                            var args = (KeyValuePair<string, UInt32>) kvp;
                             GenerateFingerprintsForFile(args.Key, args.Value);
                             countdownEvent.Signal();
-                        }, new KeyValuePair<string, ulong>(filePath, episodeId));
+                        }, new KeyValuePair<string, UInt32>(filePath, episodeId));
                     episodeId++;
                 }
                 countdownEvent.Wait();
             }
         }
 
-        private void GenerateFingerprintsForFile(string filename, UInt64 fileId) {
+        private void GenerateFingerprintsForFile(string filename, UInt32 fileId) {
             var fingerprinter = new AudioFileFingerprinter();
             string filePath = filename.IndexOf('\\') > 0 ? filename : $"{Directory.GetCurrentDirectory()}\\{filename}";
             fingerprinter.GenerateFingerprintsForFile(filePath, fileId, databaseFingerprintHashes);

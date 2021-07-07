@@ -62,7 +62,7 @@ namespace AVCapture
             path = Directory.GetCurrentDirectory() + "\\NCIS_0614_min2.mp4";
             fingerprinter = new AudioFileFingerprinter();
             fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
+            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 45);
             matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
             Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
                 matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
@@ -105,9 +105,9 @@ namespace AVCapture
         /// <param name="databaseHashes"> Hashed fingerprints from all episode in database </param>
         /// <param name="fingerprintsForCaptureFile"> Hashed fingerprints from episode to identify </param>
         /// <returns> Dictionary, were key is episode ID. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta </returns>
-        private Dictionary<UInt64, Dictionary<Int64, UInt32>> CreateFingerprintSampleTimeDeltaHistogram(Dictionary<UInt32, FingerprintGroup> databaseHashes,
+        private Dictionary<UInt32, Dictionary<Int64, UInt32>> CreateFingerprintSampleTimeDeltaHistogram(Dictionary<UInt32, FingerprintGroup> databaseHashes,
                 Dictionary<UInt32, FingerprintGroup> fingerprintsForCaptureFile) {
-            var episode_FingerprintHistogram = new Dictionary<UInt64, Dictionary<Int64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
+            var episode_FingerprintHistogram = new Dictionary<UInt32, Dictionary<Int64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
 
             //Create histogram of match count at the offset between fingerprint in database and fingerprint in capture file for each episode 
             foreach (var captureHash_fingerprints in fingerprintsForCaptureFile) {
@@ -136,7 +136,7 @@ namespace AVCapture
         /// <param name="episode_FingerprintHistogram"> Result collection to update: Dictionary: Key is episode ID. Value is dictionary where each entry's 
         ///     key is the timestamp delta between two samples and value is count of samples with the same timestamp delta</param>
         private void UpdateDeltaTimeHistogramForEachMatchingFingerprintInDatabase(Fingerprint fingerprintForCaptureHash, FingerprintGroup fingerprintsInDatabaseThatMatchCaptureFingerprint, 
-                Dictionary<UInt64, Dictionary<Int64, UInt32>> episode_FingerprintHistogram) {
+                Dictionary<UInt32, Dictionary<Int64, UInt32>> episode_FingerprintHistogram) {
             Dictionary<Int64, UInt32> sampleTimeDelta_Counts;  //Key=Delta between capture fingerprint time and sample from database with the same hash. Value=Number of database samples with the corresponding delta time
 
             //Compare the capture fingerprint all fingerprints in the database
@@ -164,12 +164,12 @@ namespace AVCapture
         /// </summary>
         /// <param name="episode_FingerprintHistogram"> //Dictionary: Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta </param>
         /// <returns> Match result info </returns>
-        private MatchResult GetEpisodeIdForMatchingEpisode(Dictionary<UInt64, Dictionary<Int64, UInt32>> episode_FingerprintHistogram) {
-            UInt64 matchingEpisodeId = 0L;
+        private MatchResult GetEpisodeIdForMatchingEpisode(Dictionary<UInt32, Dictionary<Int64, UInt32>> episode_FingerprintHistogram) {
+            UInt32 matchingEpisodeId = 0;
             UInt32 maxHashMatchCnt = 0;
             Int64 matchingSampleTimeDelta = 0;
             UInt32 almostMaxHashMatchCnt = 0;
-            UInt64 almostEpisodeId = 0;
+            UInt32 almostEpisodeId = 0;
             const Int64 DELTA_TICKS = 30_000_0;
 
             foreach (var episodeId_sampleTimeDelta_MatchCount in episode_FingerprintHistogram) {

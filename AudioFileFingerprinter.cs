@@ -27,7 +27,7 @@ namespace AVCapture
         /// <param name="filePath">Full path to the file to process</param>
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
-        public void GenerateFingerprintsForFile(string filePath, UInt64 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int secondsToCapture = 20000) {
+        public void GenerateFingerprintsForFile(string filePath, UInt32 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int secondsToCapture = 20000) {
             var upperTimeLimitTicks = AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
 
             //Console.Clear();
@@ -91,7 +91,7 @@ namespace AVCapture
         /// <param name="episodeId"></param>
         /// <param name="samples"></param>
         /// <param name="combinedFingerprintHashes"></param>
-        void CreateFingerprintsFromSamples(UInt64 episodeId, List<Sample> samples, Dictionary<UInt32, FingerprintGroup> combinedFingerprintHashes) {
+        void CreateFingerprintsFromSamples(UInt32 episodeId, List<Sample> samples, Dictionary<UInt32, FingerprintGroup> combinedFingerprintHashes) {
             DiscardUnimportantBandsForAllSamples(samples);
             LogImportantSampleBands(samples);
 
@@ -141,7 +141,7 @@ namespace AVCapture
         }
 
         private void DiscardRepeatingSamples(List<Sample> samples) {
-            const UInt64 MIN_TICKS_BETWEEN_SAMPLES_IN_CONTIGOUS_GROUP = 696_000_0;
+            const UInt64 MIN_TICKS_BETWEEN_SAMPLES_IN_CONTIGOUS_GROUP = SAMPLE_DURATION_TICKS * 4;
             var numberOfBands = samples[0].AmplitudeAtFrequencyBands.Length;
             for (var freqencyBandIdx = 0; freqencyBandIdx < numberOfBands; freqencyBandIdx++) {
                 UInt64 priorSampleTime = 0;
@@ -217,7 +217,7 @@ namespace AVCapture
             }
         }
 
-        private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples) {
+        private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt32 episodeId, List<SignificantSample> significantSamples) {
             const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
             const UInt64 STARTING_TIME_OFFSET_TICKS = 1_000_000_0;  // Ticks from root sample time to start matching
             const UInt64 FANOUT_DURATION_SECS = 1000;  // Seconds from root sample time + offset for limit to how far to search

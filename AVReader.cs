@@ -22,7 +22,7 @@ namespace AVCapture
         private WavFile wavFile;
         //private double frameDurationSec;
         //private double timestampSec = 0.0;
-        private ulong frameDurationTicks;  //Duration of each frame in 100ns ticks (only accurate when audioBps % sampleSize == 0)
+        private UInt64 frameDurationTicks;  //Duration of each frame in 100ns ticks (only accurate when audioBps % sampleSize == 0)
         private UInt64 timestampTicks;  //Sample time in 100ns ticks
         public const UInt64 TICKS_PER_SECOND = 10000000;  //100ns per tick
         private string wavFilePath;
@@ -102,7 +102,7 @@ namespace AVCapture
                 frame.AudioBuffer = new Int16[(int) ((double) wavFile.SamplesPerSec / videoFrameRate)];
             } else {  //Audio extraction only
                 frame.AudioBuffer = new Int16[bufferSize];
-                frameDurationTicks = TICKS_PER_SECOND / (ulong)(frame.AudioSampleRateHz / bufferSize);
+                frameDurationTicks = TICKS_PER_SECOND / (UInt64)(frame.AudioSampleRateHz / bufferSize);
             }
         }
 
