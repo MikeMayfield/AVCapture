@@ -36,7 +36,7 @@ namespace AVCapture
             var upperTimeLimitTicks = AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
             try {
                 avReader.Open(filePath, AUDIO_BUFFER_SIZE);
-            } catch (Exception ex) {
+            } catch {
                 return;
             }
             var frameBuffer = avReader.NextFrame();
@@ -108,10 +108,11 @@ namespace AVCapture
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
-            var WEIGHT = 3d;  //TODO 2d;
+            var WEIGHT = 4d;  //TODO 2d;
 
             //Discard bands within each sample that are below weighted average amplitude
             var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
+            //var amplitudeFloor = AverageAmplitudeMean(samples) * WEIGHT;
 
             foreach (var sample in samples) {
                 //If band's amplitude is below weighted average, ignore it
@@ -141,6 +142,24 @@ namespace AVCapture
             return Math.Sqrt(meanApplitude);
         }
 
+        private double AverageAmplitudeMean(List<Sample> samples) {
+            //Compute average amplitude (RMS: Root Mean Squared) across all samples and bands
+            var totalAmplitude = 0d;
+            var count = 0;
+
+            //Compute total amplitude across all bands
+            foreach (var sample in samples) {
+                foreach (var amplitudeAtFrequencyBand in sample.AmplitudeAtFrequencyBands) {
+                    totalAmplitude += amplitudeAtFrequencyBand;
+                    count++;
+                }
+            }
+
+            //Compute Mean average amplitude to get RMS
+            var meanApplitude = totalAmplitude / count;
+            return meanApplitude;
+        }
+
         private void LogImportantSampleBands(List<Sample> samples) {
             var maxLines = 0;  //TODO set to 0 to exclude logging or >0 to limit number of lines logged
             if (maxLines > 0) {
@@ -163,7 +182,7 @@ namespace AVCapture
         }
 
         private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt64 episodeId, List<SignificantSample> significantSamples) {
-            const int RELATED_SAMPLE_FANOUT = 15;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
             const UInt64 STARTING_TIME_OFFSET_TICKS = 1_000_000_0;  // Ticks from root sample time to start matching
             const UInt64 FANOUT_DURATION_SECS = 1000;  // Seconds from root sample time + offset for limit to how far to search
             const UInt64 MAX_FANOUT_TIMESPAN = AVReader.TICKS_PER_SECOND * FANOUT_DURATION_SECS;  //End of time range to search for fanout
