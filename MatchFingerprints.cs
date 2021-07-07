@@ -17,6 +17,7 @@ namespace AVCapture
         /// <returns>Episode ID matching the list of of fingerprints; 0 if no reliable match</returns>
         public MatchResult IdentifyEpisodeForAudioMatch(Dictionary<UInt32, FingerprintGroup> databaseHashes) {
             var episodeFingerprintMatches = new Dictionary<UInt32, Dictionary<Int64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
+            System.GC.Collect();  //TODO REMOVE
 
             string path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
             var fingerprinter = new AudioFileFingerprinter();

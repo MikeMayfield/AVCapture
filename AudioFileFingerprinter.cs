@@ -121,7 +121,7 @@ namespace AVCapture
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
-            var WEIGHT = 4d;  //TODO 2d;
+            var WEIGHT = 4d;
 
             //Discard bands within each sample that are below weighted average amplitude
             var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
@@ -133,6 +133,29 @@ namespace AVCapture
                     if (sample.AmplitudeAtFrequencyBands[i] < amplitudeFloor) {
                         sample.AmplitudeAtFrequencyBands[i] = 0d;  //Flag: Ignore this amplitude as non-significant
                     }
+                }
+            }
+
+            //TODO Test:
+            DiscardRepeatingSamples(samples);
+        }
+
+        private void DiscardRepeatingSamples(List<Sample> samples) {
+            const UInt64 MIN_TICKS_BETWEEN_SAMPLES_IN_CONTIGOUS_GROUP = 696_000_0;
+            var numberOfBands = samples[0].AmplitudeAtFrequencyBands.Length;
+            for (var freqencyBandIdx = 0; freqencyBandIdx < numberOfBands; freqencyBandIdx++) {
+                UInt64 priorSampleTime = 0;
+                var priorSampleWasSignificant = false;
+                foreach (var sample in samples) {
+                    if (priorSampleWasSignificant
+                        && sample.SampleTimeTicks <= priorSampleTime + MIN_TICKS_BETWEEN_SAMPLES_IN_CONTIGOUS_GROUP
+                        && sample.AmplitudeAtFrequencyBands[freqencyBandIdx] != 0d) {
+                        //This sample is in a run of significant samples for the current frequency band
+                        sample.AmplitudeAtFrequencyBands[freqencyBandIdx] = 0d;
+                    } else {
+                        priorSampleWasSignificant = (sample.AmplitudeAtFrequencyBands[freqencyBandIdx] != 0d);
+                    }
+                    priorSampleTime = sample.SampleTimeTicks;
                 }
             }
         }
