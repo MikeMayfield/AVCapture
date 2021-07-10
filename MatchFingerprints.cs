@@ -19,70 +19,116 @@ namespace AVCapture
             var episodeFingerprintMatches = new Dictionary<UInt32, Dictionary<Int64, UInt32>>();  //Key is fingerprint hash. Value is dictionary where each entry's key is the timestamp delta between two samples and value is count of samples with the same timestamp delta
             System.GC.Collect();  //TODO REMOVE
 
-            string path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
+            Console.WriteLine("MatchFingerprints");
+
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 0, 60);  //60 capture, 60 second window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 240, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 300, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 360, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 0, 60);  //60 sec capture,30 sec window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 30, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 90, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 150, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 210, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 240, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 270, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 300, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 330, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 360, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 390, 60);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 30);  //30 sec capture, 15 sec window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 75, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 90, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 105, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 135, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 150, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 165, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 195, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 210, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 225, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 240, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 30);  //30 sec capture, 30 sec window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 90, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 150, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 210, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 240, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 270, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 300, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 330, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 360, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 390, 30);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 0, 90);  //90 sec capture, 30 sec window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 30, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 90, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 150, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 0, 90);  //90 sec capture, 60 sec window
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 60, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 120, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 180, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 240, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 300, 90);
+            TestMatch("\\20210709_130428.mp4", databaseHashes, 360, 90);
+
+
+            //TestMatch("\\SampleVideo2_030-130.mp4", databaseHashes);
+            //TestMatch("\\SampleVideo2_030-130.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\SampleVideo2_030-130.mp4", databaseHashes, 0, 40);
+            //TestMatch("\\SampleVideo2_030-130.mp4", databaseHashes, 0, 50);
+            //TestMatch("\\NCIS_0614_min1.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\NCIS_0614_min1.mp4", databaseHashes, 15, 30);
+            //TestMatch("\\NCIS_0614_min1.mp4", databaseHashes, 30, 30);
+            //TestMatch("\\NCIS_0614_min1.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\NCIS_0614_min2.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\NCIS_0614_min2.mp4", databaseHashes, 15, 30);
+            //TestMatch("\\NCIS_0614_min2.mp4", databaseHashes, 30, 30);
+            //TestMatch("\\NCIS_0614_min2.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\NCIS_0614_min3.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\NCIS_0614_min3.mp4", databaseHashes, 15, 30);
+            //TestMatch("\\NCIS_0614_min3.mp4", databaseHashes, 30, 30);
+            //TestMatch("\\NCIS_0614_min3.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210707_143219.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210707_143546.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210707_143749.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210707_143958.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210708_173029.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210708_173139.mp4", databaseHashes, 0, 20);
+            //TestMatch("\\20210708_173139.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\20210708_173139.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\20210708_173139.mp4", databaseHashes, 30, 30);
+            //TestMatch("\\20210708_173139.mp4", databaseHashes, 0, 60);
+            //TestMatch("\\20210708_173242.mp4", databaseHashes, 0, 30);
+            //TestMatch("\\20210708_173242.mp4", databaseHashes, 15, 30);
+            //TestMatch("\\20210708_173242.mp4", databaseHashes, 30, 30);
+            var matchedEpisode = TestMatch("\\20210708_173242.mp4", databaseHashes, 0, 60);
+
+            Console.WriteLine("End of test");
+
+            return matchedEpisode;
+        }
+
+        private MatchResult TestMatch(string filePath, Dictionary<UInt32, FingerprintGroup> databaseHashes, int startTimeSecs = 0, int secondsToCapture = 20000) {
+            var startTime = DateTime.Now;
+            string path = Directory.GetCurrentDirectory() + filePath;
             var fingerprinter = new AudioFileFingerprinter();
             var fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 20);
+            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, startTimeSecs, secondsToCapture);
             var matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 30);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 40);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\SampleVideo2_030-130.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 50);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\NCIS_0614_min1.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\NCIS_0614_min2.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            path = Directory.GetCurrentDirectory() + "\\NCIS_0614_min3.mp4";
-            fingerprinter = new AudioFileFingerprinter();
-            fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
-            matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
-            //path = Directory.GetCurrentDirectory() + "\\TestFiles\\39657384-c174-46e8-abcd-7357a8b12ea3.mp4";
-            //fingerprinter = new AudioFileFingerprinter();
-            //fingerprintsForCaptureFile = new Dictionary<UInt32, FingerprintGroup>();
-            //fingerprinter.GenerateFingerprintsForFile(path, 0, fingerprintsForCaptureFile, 60);
-            //matchedEpisode = GetEpisodeMatchForCapture(databaseHashes, fingerprintsForCaptureFile);
-            //Console.WriteLine("Finished, matching episode ID: {0} with {1}:1 confidence at offset {2}",  //TODO REMOVE
-            //    matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d);
-
+            var endTime = DateTime.Now;
+            Console.WriteLine("{3:ss} sec: Finished, matching episode ID: {0} with {1:#.#} confidence at offset {2}",  //TODO REMOVE
+                matchedEpisode.EpisodeId, matchedEpisode.ConfidenceRatio, (double) matchedEpisode.SampleTimeDeltaTicks / 10000000d, endTime - startTime);
             return matchedEpisode;
         }
 

@@ -27,8 +27,9 @@ namespace AVCapture
         /// <param name="filePath">Full path to the file to process</param>
         /// <param name="episodeId">Episode ID for the associated file</param>
         /// <param name="fingerprintHashes">List of all known fingerprints. Updated to include new fingerprints</param>
-        public void GenerateFingerprintsForFile(string filePath, UInt32 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int secondsToCapture = 20000) {
-            var upperTimeLimitTicks = AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
+        public void GenerateFingerprintsForFile(string filePath, UInt32 episodeId, Dictionary<UInt32, FingerprintGroup> fingerprintHashes, int startTimeSecs = 0, int secondsToCapture = 20000) {
+            var startTimeTicks = AVReader.TICKS_PER_SECOND * (UInt64) startTimeSecs;
+            var upperTimeLimitTicks = startTimeTicks + AVReader.TICKS_PER_SECOND * (UInt64)secondsToCapture;
 
             //Console.Clear();
             Console.WriteLine("Samples for file: {0} - {1}", episodeId, filePath);
@@ -55,7 +56,9 @@ namespace AVCapture
                     for ( ; frameBufferOffset + FFT_BUFFER_SIZE <= frameBufferLength; frameBufferOffset += FFT_BUFFER_SIZE) {
                         //Generate sample for current frame
                         CopyAudioBufferToFftBuffer(frameBuffer.AudioBuffer, frameBufferOffset, fftBuffer, fftBufferOffset, fftBufferBytesToFill);
-                        samples.Add(new Sample(sampleTimeTicks, fftBuffer, sampleFFT));
+                        if (sampleTimeTicks >= startTimeTicks) {
+                            samples.Add(new Sample(sampleTimeTicks, fftBuffer, sampleFFT));
+                        }
                         fftBufferOffset = 0;
                         fftBufferBytesToFill = FFT_BUFFER_SIZE;
                         sampleTimeTicks += SAMPLE_DURATION_TICKS;
@@ -97,6 +100,7 @@ namespace AVCapture
 
             //Create list of significant samples that are above weighted average amplitude across all samples
             var significantSamples = OnlySignificantSamples(samples);
+            //Console.WriteLine("{0} samples/second", significantSamples.Count / (samples.Count / 23));
 
             var fileFingerprintHashes = CreateFingerprintsForAllSignificantSamples(episodeId, significantSamples);
             CombineFingerprintHashes(combinedFingerprintHashes, fileFingerprintHashes);
@@ -121,23 +125,45 @@ namespace AVCapture
         }
 
         private void DiscardUnimportantBandsForAllSamples(List<Sample> samples) {
-            var WEIGHT = 3d;
+            var WEIGHT = 4d;
 
             //Discard bands within each sample that are below weighted average amplitude
             var amplitudeFloor = AverageAmplitudeRMS(samples) * WEIGHT;
             //var amplitudeFloor = AverageAmplitudeMean(samples) * WEIGHT;
 
             foreach (var sample in samples) {
+                var significantFrequenciesInSampleCnt = 0;
                 //If band's amplitude is below weighted average, ignore it
                 for (var i = 0; i < sample.AmplitudeAtFrequencyBands.Length; i++) {
                     if (sample.AmplitudeAtFrequencyBands[i] < amplitudeFloor) {
                         sample.AmplitudeAtFrequencyBands[i] = 0d;  //Flag: Ignore this amplitude as non-significant
+                    } else {
+                        significantFrequenciesInSampleCnt++;
+                    }
+                }
+
+                //TODO this may not work - Simulate selecting top of 4 frequencies by amplitude per band
+                if (significantFrequenciesInSampleCnt > 1) {
+                    //Eliminate all but the highest amplitude frequency in sample
+                    var maxAmplitude = 0d;
+                    for (var bandIdx = 0; bandIdx < 4; bandIdx++) {
+                        maxAmplitude = 0d;
+                        for (var binIdx = 0; binIdx < 4; binIdx++) {
+                            if (sample.AmplitudeAtFrequencyBands[bandIdx * 4 + binIdx] > maxAmplitude) {
+                                maxAmplitude = sample.AmplitudeAtFrequencyBands[bandIdx * 4 + binIdx];
+                            }
+                        }
+                        for (var binIdx = 0; binIdx < 4; binIdx++) {
+                            if (sample.AmplitudeAtFrequencyBands[bandIdx * 4 + binIdx] != maxAmplitude) {
+                                sample.AmplitudeAtFrequencyBands[bandIdx * 4 + binIdx] = 0d;
+                            }
+                        }
                     }
                 }
             }
 
             //TODO Test:
-            DiscardRepeatingSamples(samples);
+            //DiscardRepeatingSamples(samples);
         }
 
         private void DiscardRepeatingSamples(List<Sample> samples) {
@@ -218,7 +244,7 @@ namespace AVCapture
         }
 
         private Dictionary<UInt32, FingerprintGroup> CreateFingerprintsForAllSignificantSamples(UInt32 episodeId, List<SignificantSample> significantSamples) {
-            const int RELATED_SAMPLE_FANOUT = 5;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
+            const int RELATED_SAMPLE_FANOUT = 10;  //Number of following samples to combine with root sample to create a fingerprint for a sample point
             const UInt64 STARTING_TIME_OFFSET_TICKS = 1_000_000_0;  // Ticks from root sample time to start matching
             const UInt64 FANOUT_DURATION_SECS = 1000;  // Seconds from root sample time + offset for limit to how far to search
             const UInt64 MAX_FANOUT_TIMESPAN = AVReader.TICKS_PER_SECOND * FANOUT_DURATION_SECS;  //End of time range to search for fanout

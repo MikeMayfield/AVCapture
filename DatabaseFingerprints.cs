@@ -11,7 +11,7 @@ namespace AVCapture
 {
     class DatabaseFingerprints
     {
-        bool LOAD_FROM_JSON = false;
+        bool LOAD_FROM_JSON = true;
         string DATABASE_FINGERPRINTS_JSON_FILE_PATH = Directory.GetCurrentDirectory() + "\\DatabaseFingerprints.json";
         Dictionary<UInt32, FingerprintGroup> databaseFingerprintHashes;
 
@@ -21,7 +21,7 @@ namespace AVCapture
             } else { 
                 databaseFingerprintHashes = new Dictionary<UInt32, FingerprintGroup>(20000);
 
-                GenerateFingerprintsForFile("SampleVideo.mp4", 1);
+                //GenerateFingerprintsForFile("NCIS_6.14.mp4", 1);
                 GenerateFingerprintsForFile("SampleVideo2.mp4", 10);
 
                 ProcessAllTestFiles();
@@ -33,7 +33,7 @@ namespace AVCapture
         }
 
         private void ProcessAllTestFiles() {
-            var maxFileToProcess = 50;
+            var maxFileToProcess = 1000;
             var fileList = Directory.GetFiles(Directory.GetCurrentDirectory() + "\\TestFiles", "*.mp4");
             UInt32 episodeId = 101;
             using (var countdownEvent = new CountdownEvent(Math.Min(fileList.Length, maxFileToProcess))) {

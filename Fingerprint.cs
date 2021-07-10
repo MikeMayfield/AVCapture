@@ -49,7 +49,7 @@ namespace AVCapture
 
         private UInt32 ComputeHash(SignificantSample sample1, SignificantSample sample2) {
             UInt32 deltaTimeBetweenSamples = (UInt32)(sample2.SampleTimeTicks - sample1.SampleTimeTicks);
-            return ((UInt32) sample1.FrequencyIdx << 29) | ((UInt32) sample2.FrequencyIdx << 26) | (deltaTimeBetweenSamples & 0x3FFFFFF);
+            return ((UInt32) sample1.FrequencyIdx << 28) | ((UInt32) sample2.FrequencyIdx << 24) | ((deltaTimeBetweenSamples / 232199) & 0xFFFFFF);  //232199 is ticks per sample
         }
     }
 }

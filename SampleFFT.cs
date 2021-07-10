@@ -6,7 +6,7 @@ namespace AVCapture
 {
     class SampleFFT
     {
-        public static int[] FREQUENCY_BANDS = new int[] { 386, 457, 542, 642, 761, 902, 1068 };  //Log(n) frequency bands //TODO Interatively determine optimal frequency ranges for best lookup accuracy
+        public static int[] FREQUENCY_BANDS = new int[] { 301, 345, 388, 431, 474, 517, 560, 603, 646, 689, 732, 775, 818, 861, 904, 947, 990 };
 
         public FFT fft;
         public int sampleRateHz;
